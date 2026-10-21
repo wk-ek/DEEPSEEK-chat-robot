@@ -357,8 +357,8 @@ qq-deepseek-robot/
 │   ├── persona.chuanzi.md    # ★ 子人格：串子
 │   ├── persona.tsundere.md   # ★ 子人格：傲娇
 │   ├── persona.aggressive.md # ★ 子人格：毒舌
-│   ├── persona.amiya.md      # ★ 主人格：阿米娅
-│   └── amiya.lore.md         # ★ 阿米娅记得的剧情（世界观/主线/支线）
+│   ├── persona.amiya.example.md # 阿米娅人格的公开模板（基础版）
+│   └── （persona.amiya.md / amiya.lore.md 不进仓库，见下）
 ├── assets/
 │   ├── avatar.png            # 大肥鱼头像
 │   ├── avatar_amiya.png      # 阿米娅头像
@@ -413,6 +413,37 @@ qq-deepseek-robot/
 完整的授权范围、第三方来源、AI 内容风险、隐私提示与侵权处理方式，见 **[DISCLAIMER.md](DISCLAIMER.md)**。
 
 > 一句话总结：**可以玩，可以改，可以分享 —— 但不能卖。接入 QQ 的风险自负。**
+
+---
+
+## 哪些内容不在这个仓库里
+
+为了让仓库保持「可以分享的主体」，有两类东西**故意没推上来**：
+
+| 文件 | 为什么不在 |
+| --- | --- |
+| `config/persona.amiya.md` | 作者自己用的**完整版**阿米娅人格。里面的说话方式是从 5790 条游戏台词统计出来的（省略号分布、句长、高频词…），是反复打磨出来的私有资产。 |
+| `config/amiya.lore.md` | 从游戏剧情文本里提取的**剧情知识库**（世界观、0–17 章主线、若干支线）。同样是精修产物。 |
+| `data/bot.db` | 真实聊天记录、好友 QQ 号、好感度数据。 |
+| `.env` | API 密钥、推送令牌。 |
+| `logs/` | 运行日志。 |
+| `NapCat/` | 一整套 QQ 客户端（1.6 GB），自己下。 |
+
+**仓库里公开的是**：全部程序代码、基础人格（大肥鱼和它的三副面孔）、阿米娅人格的**基础模板**、头像、表情包、配置模板、文档。
+
+想跑阿米娅？复制模板就能用：
+
+```bash
+cp config/persona.amiya.example.md config/persona.amiya.md
+```
+
+然后照着自己的想法往下写。建议看 [persona.tsundere.md](config/persona.tsundere.md) 的写法——**多写具体动作，少写形容词**。
+
+改完本地验证一句：
+
+```bash
+node scripts/try-persona.mjs 阿米娅 "博士，今天好累啊"
+```
 
 ---
 

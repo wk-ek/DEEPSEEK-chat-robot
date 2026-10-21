@@ -172,8 +172,7 @@
       },
       "amiya": {
         "label": "阿米娅",
-        "personaFile": "config/persona.amiya.md",
-        "loreFile": "config/amiya.lore.md",
+        "personaFile": "config/persona.amiya.example.md",
         "enabled": true,
         "trigger": "session",
         "enter": [

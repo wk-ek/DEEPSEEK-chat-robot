@@ -4,6 +4,13 @@
 *.pem
 *.key
 
+# ---- 用真实数据精修过的人设，不进版本库 ----
+# 阿米娅的完整人格是用 5790 条游戏台词统计出来的说话方式，
+# lore 是从剧情文本里提取的。这些是反复打磨出来的私有资产。
+# 仓库只提供基础模板：config/persona.amiya.example.md
+config/persona.amiya.md
+config/amiya.lore.md
+
 # ---- 运行时生成 ----
 config/config.json
 data/

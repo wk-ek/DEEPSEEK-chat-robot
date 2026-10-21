@@ -34,14 +34,16 @@
 
 | 内容 | 性质 | 原作来源 |
 | --- | --- | --- |
-| `config/persona.amiya.md` —— 阿米娅人格 | 二次创作 | 《明日方舟》（鹰角网络） |
-| `config/amiya.lore.md` —— 剧情知识库 | 二次创作 | 《明日方舟》（鹰角网络） |
-| `assets/avatar_amiya.png` | AI 生成的二次创作 | 《明日方舟》（鹰角网络） |
-| `assets/stickers/amiya/` —— 10 张表情包 | **网友二创作品**（非本项目原创） | 作者：B站 uid `1833510361`，[原动态](https://www.bilibili.com/opus/1227053134110523399) |
+| `config/persona.amiya.example.md` —— 阿米娅人格**基础模板** | 二次创作 | 《明日方舟》（鹰角网络） |
+| `assets/avatar_amiya.png` | **网友二创作品**，来自 B站动态 | 作者：B站 uid `1833510361`，[原动态](https://www.bilibili.com/opus/1227053134110523399) |
+| `assets/stickers/amiya/` —— 10 张表情包 | **网友二创作品**（非本项目原创） | 同上 |
 | `config/persona.md`、`persona.*.md` —— 大肥鱼人格 | 二次创作 | DeepSeek 品牌形象（社区二创延伸） |
 | `assets/avatar.png`、`assets/stickers/*.png` | AI 生成的二次创作 | 同上 |
 | `src/`、`scripts/`、`test/` —— 程序代码 | 本项目原创实现 | — |
 | 文档 | 本项目原创 | — |
+
+> 阿米娅的**完整人格**（`config/persona.amiya.md`）与**剧情知识库**（`config/amiya.lore.md`）是作者用游戏台词与剧情文本精修出来的私有资产，**不在本仓库中**。
+> 它们同样是基于《明日方舟》的二次创作，著作权归属与上述一致，同样禁止商业使用。
 
 其中程序代码是本项目的原创实现，但**作为这个二次创作项目的组成部分，同样受下文的非商业限制**。
 
