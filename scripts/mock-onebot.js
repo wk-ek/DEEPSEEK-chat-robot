@@ -443,13 +443,27 @@ async function runAutoTest() {
     if (r7c.text.includes('未启用')) fail(`阿米娅已启用，列表里不该出现「未启用」：${r7c.text}`);
     ok(`人格列表里两个主人格都已启用 → ${r7c.text.replace(/\s+/g, ' ')}`);
 
-    // 5) 群里不 @ 她时说触发词不该生效，否则路人一句话就能改全群人格
+    // 7) 说话切换主人格：说「变成阿米娅」就该换人（连带换头像和群名片）
+    //    ⚠️ 这是全局状态，下一步必须切回来，否则数据库会留在阿米娅
+    const p8 = waitForReply((a, _p, t) => a === 'send_private_msg' && t.length > 0);
+    pushMessage({ type: 'private', text: '变成阿米娅' });
+    const r8 = await p8;
+    ok(`说话切主人格 → ${r8.text}`);
+    if (!/博士|阿米娅|回来/.test(r8.text)) fail(`切阿米娅的确认话术不对：${r8.text}`);
+
+    // 8) 切回大肥鱼
+    const p9 = waitForReply((a, _p, t) => a === 'send_private_msg' && t.length > 0);
+    pushMessage({ type: 'private', text: '变回大肥鱼' });
+    const r9 = await p9;
+    ok(`说话切回主人格 → ${r9.text}`);
+
+    // 9) 群里不 @ 她时说触发词不该生效，否则路人一句话就能改全群人格
     let silent2 = true;
-    const p8 = waitForReply((a) => a === 'send_group_msg', 4000)
+    const p10 = waitForReply((a) => a === 'send_group_msg', 4000)
       .then(() => (silent2 = false))
       .catch(() => {});
-    pushMessage({ type: 'group', text: '当傲娇', at: false });
-    await p8;
+    pushMessage({ type: 'group', text: '变成阿米娅', at: false });
+    await p10;
     if (!silent2) fail('群里没 @ 她时，人格触发词不该生效');
     ok('群里没 @ 她时，人格触发词不生效');
 

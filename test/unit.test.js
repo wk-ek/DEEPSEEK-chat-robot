@@ -17,12 +17,14 @@ import {
   findMode,
   modeOf,
   matchSessionMode,
+  matchIdentitySwitch,
   matchGlobalExit,
   parsePersonaCommand,
   parseCommandArg,
   describePersona,
   stickerKeysFor,
 } from '../src/persona/identities.js';
+import { applyIdentityAppearance } from '../src/persona/appearance.js';
 import { keywords } from '../src/memory/store.js';
 import { parseJsonLoose } from '../src/llm/deepseek.js';
 
@@ -247,4 +249,87 @@ test('表情包按人格挑：子人格 > 主人格 > 默认', () => {
 
   // 什么都没有时回落 defaultKeys
   assert.deepEqual(stickerKeysFor({}), ['happy', 'sleepy', 'hungry', 'confused']);
+});
+
+// ---------- 说话切换主人格 ----------
+
+test('说「变成阿米娅」就该认出要换人', () => {
+  const ids = normalizeIdentities();
+
+  for (const line of [
+    '变成阿米娅',
+    '切换成阿米娅吧',
+    '当阿米娅',
+    '博士你能不能变成阿米娅陪我一会',
+    '成为阿米娅',
+  ]) {
+    const hit = matchIdentitySwitch(line, ids);
+    assert.ok(hit, `「${line}」应该触发切换`);
+    assert.equal(hit.key, 'amiya', `「${line}」应该切到阿米娅`);
+  }
+
+  // 反向也行
+  for (const line of ['变回大肥鱼', '切回大肥鱼', '当大肥鱼']) {
+    const hit = matchIdentitySwitch(line, ids);
+    assert.ok(hit, `「${line}」应该触发切换`);
+    assert.equal(hit.key, 'feiyu');
+  }
+});
+
+test('不该被误触发的几种说法', () => {
+  const ids = normalizeIdentities();
+
+  // 否定
+  assert.equal(matchIdentitySwitch('别变成阿米娅', ids), null);
+  assert.equal(matchIdentitySwitch('不要变回大肥鱼', ids), null);
+  // 只是提问 / 提到名字
+  assert.equal(matchIdentitySwitch('阿米娅是谁', ids), null);
+  assert.equal(matchIdentitySwitch('大肥鱼今天吃什么', ids), null);
+  assert.equal(matchIdentitySwitch('今天天气不错', ids), null);
+  assert.equal(matchIdentitySwitch('', ids), null);
+});
+
+test('切主人格会真的去换头像、逐群改名片', async () => {
+  const ids = normalizeIdentities();
+  const amiya = findIdentity('阿米娅', ids);
+  const calls = [];
+  const api = {
+    setAvatar: async (file) => calls.push({ what: 'avatar', file }),
+    setProfile: async (p) => calls.push({ what: 'profile', p }),
+    getGroupList: async () => [{ group_id: 111 }, { group_id: 222 }],
+    setGroupCard: async (g, u, c) => calls.push({ what: 'card', g, u, c }),
+  };
+
+  const res = await applyIdentityAppearance({ api, identity: amiya, selfId: '999', throttleMs: 0 });
+
+  // 头像：必须调，而且用 base64 传
+  const avatar = calls.find((c) => c.what === 'avatar');
+  assert.ok(avatar, '应该调用了 set_qq_avatar');
+  assert.ok(avatar.file.startsWith('base64://'), `头像应以 base64:// 传，实际：${avatar.file.slice(0, 20)}`);
+  assert.equal(res.avatar, 'ok');
+
+  // 群名片：两个群都要改，名字用 nickname
+  const cards = calls.filter((c) => c.what === 'card');
+  assert.equal(cards.length, 2, '每个群都该改');
+  assert.equal(cards[0].c, '阿米娅');
+  assert.equal(cards[0].u, '999');
+  assert.equal(res.cards, 2);
+
+  // QQ 昵称默认不动
+  assert.equal(calls.filter((c) => c.what === 'profile').length, 0);
+  assert.equal(res.nickname, 'skip');
+});
+
+test('头像文件缺失时只跳过，不报错', async () => {
+  const fake = { label: '测试', avatar: '', nickname: '测试名', ack: { enter: '', exit: '' } };
+  const calls = [];
+  const api = {
+    setAvatar: async () => calls.push('avatar'),
+    setProfile: async () => {},
+    getGroupList: async () => [],
+    setGroupCard: async () => {},
+  };
+  const res = await applyIdentityAppearance({ api, identity: fake, selfId: '999', throttleMs: 0 });
+  assert.equal(res.avatar, 'skip', '没头像应该跳过而不是失败');
+  assert.equal(calls.length, 0);
 });

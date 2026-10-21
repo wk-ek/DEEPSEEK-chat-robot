@@ -38,9 +38,10 @@ function toBase64Url(file) {
 
 /**
  * 把某个主人格的外观应用上去。
+ * @param {number} [throttleMs] 覆盖配置里的群名片间隔（测试时传 0 就不用等）
  * @returns {Promise<{avatar: string, nickname: string, cards: number, failed: number}>}
  */
-export async function applyIdentityAppearance({ api, identity, selfId }) {
+export async function applyIdentityAppearance({ api, identity, selfId, throttleMs }) {
   const cfg = config.persona?.apply || {};
   const out = { avatar: 'skip', nickname: 'skip', cards: 0, failed: 0 };
 
@@ -82,7 +83,8 @@ export async function applyIdentityAppearance({ api, identity, selfId }) {
   // ---- 群名片（逐群） ----
   if (cfg.groupCard !== false && identity.nickname && selfId) {
     const groups = await api.getGroupList();
-    const gap = Math.max(0, Number(cfg.throttleMs) || 1500);
+    const gap =
+      throttleMs != null ? Math.max(0, Number(throttleMs) || 0) : Math.max(0, Number(cfg.throttleMs) || 1500);
 
     for (const g of groups) {
       const gid = g?.group_id;

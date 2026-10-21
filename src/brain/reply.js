@@ -16,6 +16,7 @@ import {
   modeOf,
   matchGlobalExit,
   matchSessionMode,
+  matchIdentitySwitch,
   parsePersonaCommand,
   parseCommandArg,
   describePersona,
@@ -510,14 +511,20 @@ export class Brain {
       return this.#runPersonaCommand({ cmd, identities, identity, curMode, ctx });
     }
 
-    // 2) 全局退出词：任何子人格下都管用，否则切了别的就退不出来
+    // 2) 说话里让她「变成另一个人」——这是主人格切换，会连带换头像和群名片
+    const wantIdentity = matchIdentitySwitch(text, identities);
+    if (wantIdentity) {
+      return this.#switchIdentity({ target: wantIdentity, identity, ctx });
+    }
+
+    // 3) 全局退出词：任何子人格下都管用，否则切了别的就退不出来
     if (curMode && matchGlobalExit(text)) {
       this.#setMode(ctx.scope, '');
       log.info(`子人格 → 正常：${ctx.scope}（${ctx.senderName}：${text.slice(0, 20)}）`);
       return { ack: curMode.ack.exit };
     }
 
-    // 3) 会话识别：只在当前主人格的子人格里找
+    // 4) 子人格会话识别：只在当前主人格的子人格里找
     const hit = matchSessionMode(text, identity);
     if (!hit) return null;
 

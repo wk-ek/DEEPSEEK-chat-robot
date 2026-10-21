@@ -30,6 +30,15 @@
         "label": "大肥鱼",
         "personaFile": "config/persona.md",
         "enabled": true,
+        "trigger": "session",
+        "enter": [
+          "变成大肥鱼",
+          "变回大肥鱼",
+          "换回大肥鱼",
+          "切回大肥鱼",
+          "切换到大肥鱼",
+          "当大肥鱼"
+        ],
         "aliases": [
           "大肥鱼",
           "肥鱼",
@@ -166,6 +175,16 @@
         "personaFile": "config/persona.amiya.md",
         "loreFile": "config/amiya.lore.md",
         "enabled": true,
+        "trigger": "session",
+        "enter": [
+          "变成阿米娅",
+          "切换成阿米娅",
+          "切换到阿米娅",
+          "切到阿米娅",
+          "换回阿米娅",
+          "当阿米娅",
+          "成为阿米娅"
+        ],
         "aliases": [
           "阿米娅",
           "amiya",
