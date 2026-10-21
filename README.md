@@ -354,9 +354,7 @@ qq-deepseek-robot/
 │   ├── config.json           # 行为配置（自动生成）
 │   ├── config.example.json   # 默认值参考
 │   ├── persona.md            # ★ 主人格：大肥鱼
-│   ├── persona.chuanzi.md    # ★ 子人格：串子
-│   ├── persona.tsundere.md   # ★ 子人格：傲娇
-│   ├── persona.aggressive.md # ★ 子人格：毒舌
+│   └── （子人格文件不入库，自己按需写）
 │   ├── persona.amiya.example.md # 阿米娅人格的公开模板（基础版）
 │   └── （persona.amiya.md / amiya.lore.md 不进仓库，见下）
 ├── assets/
@@ -418,26 +416,46 @@ qq-deepseek-robot/
 
 ## 哪些内容不在这个仓库里
 
-为了让仓库保持「可以分享的主体」，有两类东西**故意没推上来**：
+这个仓库**只放使用和框架**：代码、配置模板、文档、头像素材。
+
+**人格设计不进来。** 仓库里只留两份**基础人格**作为能跑起来的示例：
+
+| 保留 | 说明 |
+| --- | --- |
+| `config/persona.md` | 大肥鱼——一个主人格示例，演示 persona 文件该怎么写 |
+| `config/persona.amiya.example.md` | 阿米娅——另一个主人格示例，同时演示「人格」和「基础模板」怎么配合 |
+
+以下这些**故意没推**：
 
 | 文件 | 为什么不在 |
 | --- | --- |
-| `config/persona.amiya.md` | 作者自己用的**完整版**阿米娅人格。里面的说话方式是从 5790 条游戏台词统计出来的（省略号分布、句长、高频词…），是反复打磨出来的私有资产。 |
-| `config/amiya.lore.md` | 从游戏剧情文本里提取的**剧情知识库**（世界观、0–17 章主线、若干支线）。同样是精修产物。 |
+| `config/persona.amiya.md` | 完整的阿米娅人格。说话方式是从 5790 条游戏台词统计出来的（省略号分布、句长、高频词…），是私有资产。 |
+| `config/amiya.lore.md` | 从游戏剧情文本提取的剧情知识库。 |
+| `config/persona.amiya.demon.md` | 第二个人格（魔王兔），基于剧情文本精修。 |
+| `config/persona.chuanzi.md`<br>`config/persona.tsundere.md`<br>`config/persona.aggressive.md` | 三个子人格，属于人格设计。 |
 | `data/bot.db` | 真实聊天记录、好友 QQ 号、好感度数据。 |
 | `.env` | API 密钥、推送令牌。 |
 | `logs/` | 运行日志。 |
 | `NapCat/` | 一整套 QQ 客户端（1.6 GB），自己下。 |
 
-**仓库里公开的是**：全部程序代码、基础人格（大肥鱼和它的三副面孔）、阿米娅人格的**基础模板**、头像、表情包、配置模板、文档。
+**框架是全的**：子人格机制、两层人格、换头像、表情包、剧情知识注入——代码都在，只是没附赠具体的人格内容。
 
-想跑阿米娅？复制模板就能用：
+想跑起来？把示例复制成实际使用的文件，然后照着自己的想法写：
 
 ```bash
 cp config/persona.amiya.example.md config/persona.amiya.md
 ```
 
-然后照着自己的想法往下写。建议看 [persona.tsundere.md](config/persona.tsundere.md) 的写法——**多写具体动作，少写形容词**。
+写的时候**多写具体动作，少写形容词**——`persona.md` 里就有现成的写法可参考：
+
+- ✅「被调侃会小声嘟囔一句『……你才是呢』，然后自己先笑」
+- ❌「她性格幽默，善于化解尴尬」
+
+写完本地验一句：
+
+```bash
+node scripts/try-persona.mjs 阿米娅 "博士，今天好累啊"
+```
 
 改完本地验证一句：
 
