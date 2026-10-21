@@ -41,6 +41,7 @@ export function assembleContext({
   mode,
   skipTail = 0,
   contentOverride,
+  stickerDirective,
 }) {
   const rows = recentMessages(scope, config.reply.maxContextMessages);
 
@@ -71,6 +72,7 @@ export function assembleContext({
     scope: { type: scopeType, groupName, groupId },
     identity,
     mode,
+    stickerDirective,
   });
 
   const content = contentOverride || (isGroup ? `${senderName}: ${userText}` : userText);

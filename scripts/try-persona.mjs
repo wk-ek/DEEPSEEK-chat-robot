@@ -14,10 +14,13 @@ import { config, envConfig } from '../src/config.js';
 import { normalizeIdentities, findIdentity, findMode, stickerKeysFor } from '../src/persona/identities.js';
 import { buildSystemPrompt } from '../src/llm/prompt.js';
 import { chat } from '../src/llm/deepseek.js';
+import { planStickerReply } from '../src/brain/reply.js';
 
 const args = process.argv.slice(2);
 const dump = args.includes('--dump');
-const rest = args.filter((a) => a !== '--dump');
+const rest = args.filter((a) => a !== '--dump' && !a.startsWith('--mood=') && !a.startsWith('--favor='));
+const moodArg = args.find((a) => a.startsWith('--mood='))?.split('=')[1];
+const favorArg = args.find((a) => a.startsWith('--favor='))?.split('=')[1];
 
 const who = rest[0];
 const says = rest.slice(1);
@@ -29,7 +32,10 @@ if (!who || !says.length) {
   人格写法： 阿米娅      → 主人格
              大肥鱼:傲娇  → 主人格 + 子人格
 
-  可选：--dump 连 system prompt 一起打出来
+  可选：
+    --dump            连 system prompt 一起打出来
+    --mood=happy      设定当前心情（calm/happy/low/sleepy/curious/annoyed/shy/miss）
+    --favor=80        设定好感度（0-100）
 `);
   process.exit(1);
 }
@@ -67,8 +73,8 @@ if (modePart && !mode) {
 // 造一个假的状态，避免连数据库
 const state = {
   nick: '博士',
-  favor: Math.round(config.emotion.initialFavor ?? 30),
-  mood: 'calm',
+  favor: Math.round(Number(favorArg) || config.emotion.initialFavor || 30),
+  mood: moodArg || 'calm',
   moodIntensity: 0.3,
   turns: 0,
   lastNote: '',
@@ -98,9 +104,31 @@ for (const line of says) {
   console.log(`你：${line}`);
   messages.push({ role: 'user', content: line });
 
+  // 和真实运行一样：如果这句是在要表情包，先算出她愿不愿意，并把指令注入 prompt
+  const plan = planStickerReply(line, state);
+  if (plan.want) {
+    console.log(`\x1b[90m  （这一轮被要表情包 → ${plan.willing ? '她愿意' : '她不愿意'}）\x1b[0m`);
+    messages[0] = { role: 'system', content: system + `\n\n【这一轮的特殊情况】\n${plan.directive}` };
+  } else {
+    messages[0] = { role: 'system', content: system };
+  }
+
   const t0 = Date.now();
   try {
-    const reply = await chat({ messages, maxTokens: 500, tag: 'try-persona' });
+    let reply = await chat({ messages, maxTokens: 500, tag: 'try-persona' });
+
+    // 模拟真实运行的后处理：拒绝时绝不能带表情；答应时没带就补一张
+    const keys = stickerKeysFor({ mode, identity });
+    const hasSticker = /\[\[sticker:[\w-]+\]\]/i.test(reply);
+    if (plan.want && !plan.willing && hasSticker) {
+      reply = reply.replace(/\[\[sticker:[\w-]+\]\]/gi, '').trim();
+      console.log(`\x1b[90m  （后处理：她拒绝了，去掉模型自作主张加的表情）\x1b[0m`);
+    } else if (plan.want && plan.willing && !hasSticker && keys.length) {
+      const k = keys[Math.floor(Math.random() * keys.length)];
+      reply = reply + `[[sticker:${k}]]`;
+      console.log(`\x1b[90m  （后处理：她答应了但没带图，补一张随机的 ${k}）\x1b[0m`);
+    }
+
     messages.push({ role: 'assistant', content: reply });
     console.log(`${identity.label}：${reply}`);
     console.log(`\x1b[90m  (${Date.now() - t0}ms)\x1b[0m`);

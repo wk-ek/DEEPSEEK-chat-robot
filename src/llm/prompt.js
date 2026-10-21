@@ -41,7 +41,7 @@ export function personaText(file = config.personaFile) {
  *   mode.file            —— 她此刻怎么说话（表现），可选
  * 状态与记忆是「此刻的补充」，说话规则放最后（模型对末尾更敏感）。
  */
-export function buildSystemPrompt({ state, memories, scope, identity, mode }) {
+export function buildSystemPrompt({ state, memories, scope, identity, mode, stickerDirective }) {
   const name = identity?.label || config.botName;
   const tier = favorTier(state?.favor ?? config.emotion.initialFavor);
   const mood = MOOD_LABELS[state?.mood] || state?.mood || '平静';
@@ -143,6 +143,11 @@ export function buildSystemPrompt({ state, memories, scope, identity, mode }) {
           `这些是真正的图，不是 emoji。想表达情绪就用这个标记，不要拿 😏😤 这类文字表情凑数。\n` +
           `一轮最多一张，放在回复最末尾。`
       );
+    }
+
+    // 这一轮有人在要表情包 —— 临时指令，优先级最高
+    if (stickerDirective && keys.length) {
+      parts.push(`【这一轮的特殊情况】\n${stickerDirective}`);
     }
   }
 

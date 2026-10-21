@@ -9,7 +9,7 @@ import {
   mentionsName,
   toContextLine,
 } from '../src/onebot/parse.js';
-import { sanitizeReply, isMuteCommand } from '../src/brain/reply.js';
+import { sanitizeReply, isMuteCommand, isStickerRequest, stickerWilling, planStickerReply } from '../src/brain/reply.js';
 import { favorTier, normalizeMood } from '../src/persona/state.js';
 import {
   normalizeIdentities,
@@ -337,4 +337,49 @@ test('头像文件缺失时只跳过，不报错', async () => {
   const res = await applyIdentityAppearance({ api, identity: fake, selfId: '999', throttleMs: 0 });
   assert.equal(res.avatar, 'skip', '没头像应该跳过而不是失败');
   assert.equal(calls.length, 0);
+});
+
+// ---------- 被要表情包 ----------
+
+test('识别「要表情包」的请求', () => {
+  for (const line of ['发个表情包看看', '来个表情', '发表情', '给张表情包', '整一个表情包', '表情包呢', '发张图看看', '能发个表情包吗']) {
+    assert.equal(isStickerRequest(line), true, `「${line}」应该识别为要表情包`);
+  }
+  // 只是提到，不是在要
+  for (const line of ['这个表情包好可爱', '我买了个表情包', '表情包真多啊', '今天天气不错']) {
+    assert.equal(isStickerRequest(line), false, `「${line}」不该被识别为要表情包`);
+  }
+});
+
+test('心情好更愿意给表情，心情差更小气', () => {
+  const rate = (mood, favor) => {
+    let yes = 0;
+    for (let i = 0; i < 3000; i++) if (stickerWilling({ mood, favor })) yes++;
+    return yes / 3000;
+  };
+  assert.ok(rate('happy', 80) > 0.8, '心情好+关系好，大概率愿意');
+  assert.ok(rate('low', 10) < 0.2, '心情差+不熟，大概率不愿意');
+  assert.ok(rate('happy', 80) > rate('low', 10), '心情好应该比心情差更愿意');
+});
+
+test('要表情包时会给出一条明确指令', () => {
+  // 愿意/不愿意是概率的，所以看分布而不是单次结果
+  let willing = 0;
+  let refuse = 0;
+  for (let i = 0; i < 300; i++) {
+    const happy = planStickerReply('发个表情包', { mood: 'happy', favor: 90 });
+    const low = planStickerReply('发个表情包', { mood: 'low', favor: 5 });
+    assert.equal(happy.want, true);
+    assert.equal(low.want, true);
+    if (happy.directive.includes('愿意')) willing++;
+    if (low.directive.includes('不想发')) {
+      refuse++;
+      assert.ok(low.directive.includes('不要带表情'), '拒绝时必须禁止带表情');
+    }
+  }
+  assert.ok(willing > 200, `心情好时绝大多数指令应是「愿意」，实际 ${willing}/300`);
+  assert.ok(refuse > 200, `心情差时绝大多数指令应是「拒绝」，实际 ${refuse}/300`);
+
+  // 普通聊天不该产生指令
+  assert.equal(planStickerReply('今天天气不错', { mood: 'happy', favor: 50 }).want, false);
 });

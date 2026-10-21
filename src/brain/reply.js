@@ -7,7 +7,7 @@ import { buildMessages, buildIntrospectMessages } from '../llm/prompt.js';
 import { chat, parseJsonLoose, estimateTokens } from '../llm/deepseek.js';
 import { searchWeb, formatResults, fetchWeather, extractCity, cleanQuery } from '../search/search.js';
 import { checkBudget, addDailyUsed, getDailyUsed } from '../search/budget.js';
-import { applyIntrospection, heuristicDelta } from '../persona/state.js';
+import { applyIntrospection, heuristicDelta, getOrCreateUser } from '../persona/state.js';
 import {
   normalizeIdentities,
   defaultIdentity,
@@ -20,6 +20,7 @@ import {
   parsePersonaCommand,
   parseCommandArg,
   describePersona,
+  stickerKeysFor,
 } from '../persona/identities.js';
 import { applyIdentityAppearance } from '../persona/appearance.js';
 import { saveMessage, addMemory, touchGroup, recentMessages, kvGet, kvSet } from '../memory/store.js';
@@ -52,6 +53,56 @@ function shouldSearch(text) {
   const t = String(text || '').trim();
   if (t.length < 2 || t.length > 200) return false;
   return (config.search?.keywords || []).some((k) => k && t.includes(k));
+}
+
+/**
+ * 对方是不是在「要表情包」。
+ * 只认带动词的说法（发/来/要/给/整…），单纯夸「这个表情包好可爱」不算。
+ */
+export function isStickerRequest(text) {
+  const t = String(text || '').trim();
+  if (!t || t.length > 40) return false;
+  // 动词 + 最多两个字 + 表情/图/贴纸（容许「发一个」「整一张」这种）
+  if (/(发|来|要|给|整|搞|出|甩|奖)[个张一两个张呢]?.{0,2}(表情|图|贴纸)/.test(t)) return true;
+  if (/表情包?\s*(呢|来|给我|看看|一个)/.test(t)) return true;
+  return false;
+}
+
+/**
+ * 被要表情包时她愿不愿意给。
+ * 心情好、关系熟的时候更愿意；烦了、低落时就小气一点。
+ */
+export function stickerWilling(state) {
+  const mood = String(state?.mood || 'calm');
+  const favor = Number(state?.favor ?? 30);
+  let p = 0.55;
+  const table = { happy: 0.9, shy: 0.8, miss: 0.75, curious: 0.7, calm: 0.6, sleepy: 0.4, annoyed: 0.2, low: 0.15 };
+  if (table[mood] !== undefined) p = table[mood];
+  if (favor >= 60) p += 0.15;
+  else if (favor < 20) p -= 0.2;
+  return Math.random() < Math.min(0.95, Math.max(0.05, p));
+}
+
+/**
+ * 这一轮要不要处理「对方在要表情包」这件事。
+ * 抽出来是为了让 try-persona 那种独立工具也能走同一套判断，测试才准。
+ *
+ * @returns {{want: boolean, willing: boolean|null, directive: string}}
+ */
+export function planStickerReply(text, state) {
+  if (!isStickerRequest(text)) return { want: false, willing: null, directive: '' };
+
+  const willing = stickerWilling(state);
+  const directive = willing
+    ? '对方在要表情包。你现在心情不错，愿意给他看一张 —— 在回复末尾带上你最想给的那张，' +
+      '不用多解释，也不用说「好吧我发你」这种话，自然地给就行。'
+    : '对方在要表情包。你现在**不想发**。\n' +
+      '必须用一句话**明确拒绝**（比如「……现在不想发。」「不给。」「我今天不太想发这个。」），' +
+      '可以带点小情绪或者找个借口，但要让对方一眼看出你**不打算发**——' +
+      '不要含糊、不要反问之后又给。\n' +
+      '**这一轮绝对不要带表情标记。**';
+
+  return { want: true, willing, directive };
 }
 
 /** 通用关键词匹配：太长的句子不算，避免误伤正常聊天。 */
@@ -778,6 +829,16 @@ export class Brain {
     // 当前会话用哪套人设：主人格定「谁」，子人格定「什么样子」
     const { identity, mode } = this.#personaState(ctx.scope);
 
+    // 有人在要表情包：她得给个明确反应 —— 要么给一张，要么明说不给
+    const preState = getOrCreateUser({ userId: ctx.userId, nick: ctx.senderName });
+    const stickerPlan = planStickerReply(userText, preState);
+    const wantSticker = stickerPlan.want;
+    const stickerWillingNow = stickerPlan.willing;
+    const stickerDirective = stickerPlan.directive;
+    if (wantSticker) {
+      log.debug(`被要表情包 → ${stickerWillingNow ? '愿意' : '不愿意'}（心情 ${preState.mood}，好感 ${preState.favor}）`);
+    }
+
     const assembled = assembleContext({
       scope: ctx.scope,
       scopeType: ctx.scopeType,
@@ -792,6 +853,7 @@ export class Brain {
       // 刚存进去的这几条要从历史里排除，否则会重复喂给模型
       skipTail: items.length,
       contentOverride: ctx.isGroup ? speech : userText,
+      stickerDirective,
     });
 
     // 需要实时信息时联网查一下；超预算或查不到就用「饿」话术兜底
@@ -821,7 +883,26 @@ export class Brain {
     }
 
     const rawReply = sanitizeReply(raw, identity?.label || config.botName);
-    const { text: reply, sticker } = extractSticker(rawReply);
+    let { text: reply, sticker } = extractSticker(rawReply);
+
+    // 被要表情包时兜底：答应的必须真给一张，拒绝的绝不能偷塞一张
+    if (wantSticker) {
+      if (stickerWillingNow) {
+        if (!sticker) {
+          const keys = stickerKeysFor({ mode, identity });
+          const pick = keys[Math.floor(Math.random() * keys.length)];
+          const file = pick ? config.stickers?.list?.[pick] : '';
+          if (file) {
+            sticker = path.join(PATHS.root, config.stickers.dir || 'assets/stickers', file);
+            log.info(`她答应了但没带表情，补一张随机的：${pick}`);
+          }
+        }
+      } else if (sticker) {
+        log.info('她说了不愿意，去掉模型自作主张加的表情');
+        sticker = null;
+      }
+    }
+
     if (!reply && !sticker) {
       log.warn('模型返回空内容，跳过');
       return;
