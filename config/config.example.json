@@ -255,6 +255,8 @@
       "小鲸鱼",
       "大肥"
     ],
+    "groupAtSender": false,
+    "quoteReply": false,
     "debounceMs": 900,
     "maxContextMessages": 24,
     "maxReplyChars": 260,

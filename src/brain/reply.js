@@ -625,15 +625,27 @@ export class Brain {
     return { ack: target.ack.enter };
   }
 
-  /** 同一会话同一人的连续消息合并成一次请求，避免她一句句回。 */
+  /**
+   * 把待回复的消息攒起来，合并成一次请求。
+   *
+   * 群聊按「整个会话」合并 —— 几个人接连说话时会合成一次回复，她可以一起回应；
+   * 私聊仍然按人。每条消息都保留说话人，回复时才分得清谁说的。
+   */
   #enqueue(ctx) {
-    const key = `${ctx.scopeType}:${ctx.groupId || 0}:${ctx.userId}`;
+    const key = ctx.isGroup ? ctx.scope : `${ctx.scope}:${ctx.userId}`;
     let buf = this.buffers.get(key);
     if (!buf) {
-      buf = { ctx, texts: [], timer: null, atMe: ctx.atMe };
+      buf = { ctx, items: [], timer: null, atMe: ctx.atMe };
       this.buffers.set(key, buf);
     }
-    if (ctx.text) buf.texts.push(ctx.text);
+    if (ctx.text) {
+      buf.items.push({
+        userId: ctx.userId,
+        senderName: ctx.senderName,
+        text: ctx.text,
+        atMe: !!ctx.atMe,
+      });
+    }
     buf.atMe = buf.atMe || ctx.atMe;
 
     clearTimeout(buf.timer);
@@ -716,29 +728,51 @@ export class Brain {
 
   async #flush(buf) {
     const { ctx } = buf;
-    const merged = buf.texts.join('\n').trim();
+    const items = (buf.items || []).filter((it) => it && it.text);
 
     if (!this.limiter.allow(ctx.userId)) {
       log.warn(`限流：${ctx.userId} 触发频率限制，跳过`);
       return;
     }
 
-    saveMessage({
-      scope: ctx.scope,
-      scopeType: ctx.scopeType,
-      userId: ctx.userId,
-      groupId: ctx.groupId,
-      senderName: ctx.senderName,
-      role: 'user',
-      text: merged || '@',
-    });
+    // 每个人的话单独入库，保留真实说话人（多人时不能混成一条）
+    for (const it of items) {
+      saveMessage({
+        scope: ctx.scope,
+        scopeType: ctx.scopeType,
+        userId: it.userId,
+        groupId: ctx.groupId,
+        senderName: it.senderName,
+        role: 'user',
+        text: it.text,
+      });
+    }
 
-    if (!merged) {
+    if (!items.length) {
       // 只 @ 不说话
+      saveMessage({
+        scope: ctx.scope,
+        scopeType: ctx.scopeType,
+        userId: ctx.userId,
+        groupId: ctx.groupId,
+        senderName: ctx.senderName,
+        role: 'user',
+        text: '@',
+      });
       const line = ONLY_AT_LINES[Math.floor(Math.random() * ONLY_AT_LINES.length)];
       await this.#deliver(ctx, line, {});
       return;
     }
+
+    // 这次要回应几个人
+    const speakers = [...new Set(items.map((it) => it.userId))];
+    const multi = speakers.length > 1;
+
+    // 多人时把每句话都带上说话人，模型才分得清谁在说
+    const userText = items.map((it) => it.text).join('\n');
+    const speech = multi
+      ? items.map((it) => `${it.senderName}: ${it.text}`).join('\n')
+      : userText;
 
     const started = Date.now();
     // 当前会话用哪套人设：主人格定「谁」，子人格定「什么样子」
@@ -749,18 +783,21 @@ export class Brain {
       scopeType: ctx.scopeType,
       userId: ctx.userId,
       senderName: ctx.senderName,
-      userText: merged,
+      userText,
       isGroup: ctx.isGroup,
       groupName: ctx.groupName,
       groupId: ctx.groupId,
       identity,
       mode,
+      // 刚存进去的这几条要从历史里排除，否则会重复喂给模型
+      skipTail: items.length,
+      contentOverride: ctx.isGroup ? speech : userText,
     });
 
     // 需要实时信息时联网查一下；超预算或查不到就用「饿」话术兜底
     let searchBlock = '';
-    if (config.search?.enabled && shouldSearch(merged)) {
-      const got = await this.#trySearch(merged);
+    if (config.search?.enabled && shouldSearch(userText)) {
+      const got = await this.#trySearch(userText);
       if (!got.ok) {
         const line = HUNGRY_LINES[Math.floor(Math.random() * HUNGRY_LINES.length)];
         await this.#deliver(ctx, line, {});
@@ -792,7 +829,7 @@ export class Brain {
 
     log.info(
       `${ctx.isGroup ? '群' + ctx.groupId : '私聊'} ${ctx.senderName}: ` +
-        `${merged.replace(/\n/g, ' / ').slice(0, 40)} → ${reply.slice(0, 40)}` +
+        `${userText.replace(/\n/g, " / ").slice(0, 40)} → ${reply.slice(0, 40)}` +
         `${sticker ? ' [表情包]' : ''} ` +
         `(${Date.now() - started}ms)`
     );
@@ -805,7 +842,7 @@ export class Brain {
     // 后台更新情绪/好感度 + 记忆，不阻塞下一句
     this.#introspect({
       userId: ctx.userId,
-      userText: merged,
+      userText,
       replyText: reply,
       state: assembled.state,
       personaName: identity?.label || config.botName,
@@ -826,9 +863,12 @@ export class Brain {
     let res;
     try {
       if (ctx.isGroup) {
+        // 默认「直接接话」：不 @ 人、也不引用回复，像群里正常聊天那样
+        const atSender = config.reply.groupAtSender === true;
+        const quote = config.reply.quoteReply === true;
         res = await this.api.sendGroup(ctx.groupId, text, {
-          atUserId: ctx.userId,
-          replyMsgId,
+          atUserId: atSender ? ctx.userId : undefined,
+          replyMsgId: quote ? replyMsgId : undefined,
           sticker,
         });
       } else {

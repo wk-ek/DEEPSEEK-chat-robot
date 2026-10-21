@@ -24,6 +24,9 @@ export function toChatHistory(rows, { isGroup }) {
 /**
  * 组装一次回复所需的全部上下文：
  * 历史（剔除当前这句，避免重复喂）+ 记忆 + 状态 + system prompt + 当前内容。
+ *
+ * @param {number} [skipTail] 直接跳过最近 N 条（多人同时说话时用，比按文本匹配可靠）
+ * @param {string} [contentOverride] 直接用这段文本作为「当前内容」（多人合并时已自带说话人）
  */
 export function assembleContext({
   scope,
@@ -36,12 +39,19 @@ export function assembleContext({
   groupId,
   identity,
   mode,
+  skipTail = 0,
+  contentOverride,
 }) {
   const rows = recentMessages(scope, config.reply.maxContextMessages);
 
-  const last = rows[rows.length - 1];
-  const historyRows =
-    last && last.role === 'user' && last.text === userText ? rows.slice(0, -1) : rows;
+  let historyRows;
+  if (skipTail > 0) {
+    historyRows = rows.slice(0, Math.max(0, rows.length - skipTail));
+  } else {
+    // 单人的情况：按内容匹配剔除最后那一句
+    const last = rows[rows.length - 1];
+    historyRows = last && last.role === 'user' && last.text === userText ? rows.slice(0, -1) : rows;
+  }
 
   const history = toChatHistory(historyRows, { isGroup });
 
@@ -63,7 +73,7 @@ export function assembleContext({
     mode,
   });
 
-  const content = isGroup ? `${senderName}: ${userText}` : userText;
+  const content = contentOverride || (isGroup ? `${senderName}: ${userText}` : userText);
 
   return { system, history, content, memories, state };
 }

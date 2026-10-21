@@ -37,6 +37,8 @@ const MODE = process.argv.includes('--auto') ? 'auto' : 'interactive';
 const SELF_ID = '10000';
 const BOT_NAME = '大肥鱼';
 const TEST_USER = { user_id: 22222, nickname: '阿泽', card: '' };
+/** 第二个人，用来测「多人同时说话」 */
+const TEST_USER_B = { user_id: 33334, nickname: '小林', card: '' };
 const TEST_GROUP = { group_id: 33333, group_name: '测试群' };
 
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
@@ -230,17 +232,17 @@ function waitForReply(match, timeoutMs = 20000) {
   });
 }
 
-function pushMessage({ type, text, at = false }) {
+function pushMessage({ type, text, at = false, user = TEST_USER }) {
   const base = {
     post_type: 'message',
     self_id: Number(SELF_ID),
     time: Math.floor(Date.now() / 1000),
     message_id: ++msgSeq,
-    user_id: TEST_USER.user_id,
+    user_id: user.user_id,
     sender: {
-      user_id: TEST_USER.user_id,
-      nickname: TEST_USER.nickname,
-      card: TEST_USER.card,
+      user_id: user.user_id,
+      nickname: user.nickname,
+      card: user.card || '',
       is_bot: false,
     },
     raw_message: text,
@@ -369,6 +371,12 @@ async function runAutoTest() {
 
     await new Promise((r) => setTimeout(r, 1500));
 
+    // 确保从默认主人格开始 —— 上一次测试可能把身份留在了阿米娅身上，
+    // 那样「当傲娇」就找不到子人格了。这一步是给测试兜底。
+    prog('reset identity');
+    pushMessage({ type: 'private', text: '变回大肥鱼' });
+    await new Promise((r) => setTimeout(r, 2000));
+
     // 私聊
     prog('sending private msg');
     const p1 = waitForReply((a, _p, text) => a === 'send_private_msg' && text.length > 0);
@@ -456,6 +464,29 @@ async function runAutoTest() {
     pushMessage({ type: 'private', text: '变回大肥鱼' });
     const r9 = await p9;
     ok(`说话切回主人格 → ${r9.text}`);
+
+    // 10) 多人同时说话：应该合并成一次回复，而且不再 @ 人
+    const pA = waitForReply((a) => a === 'send_group_msg', 8000);
+    pushMessage({ type: 'group', text: '大肥鱼在吗，想问个事', at: true, user: TEST_USER });
+    await new Promise((r) => setTimeout(r, 200));
+    pushMessage({ type: 'group', text: '我也想问问', at: true, user: TEST_USER_B });
+    const rA = await pA;
+    ok(`多人同时说话 → ${rA.text}`);
+
+    // 关键：不该再补一条回复
+    let gotSecond = false;
+    await waitForReply((a) => a === 'send_group_msg', 2500)
+      .then(() => {
+        gotSecond = true;
+      })
+      .catch(() => {});
+    if (gotSecond) fail('两个人先后说话应该合并成一次回复，但她回了两条');
+    ok('两个人先后说话 → 合并成一次回复');
+
+    // 也不再 @ 任何人
+    const ats = (rA.params.message || []).filter((s) => s.type === 'at');
+    if (ats.length) fail(`群回复里不该再 @ 人，实际带了 ${ats.length} 个`);
+    ok('群回复里没有 @ 任何人');
 
     // 9) 群里不 @ 她时说触发词不该生效，否则路人一句话就能改全群人格
     let silent2 = true;
