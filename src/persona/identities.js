@@ -72,6 +72,10 @@ function normalizeMode(key, raw) {
           ? (config.stickers?.chuanziKeys || []).map(String) // 老配置兼容
           : [],
     promptNote: String(raw.promptNote || '').trim(),
+    // 子人格也能改外观：换一张头像、换一个昵称。
+    // 不填就继承主人格，退出时恢复。
+    avatar: raw.avatar ? resolveFile(raw.avatar) : '',
+    nickname: String(raw.nickname || '').trim(),
   };
 }
 

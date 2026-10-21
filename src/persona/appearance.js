@@ -38,28 +38,36 @@ function toBase64Url(file) {
 
 /**
  * 把某个主人格的外观应用上去。
+ *
+ * @param mode 子人格。子人格可以覆盖头像和昵称（比如「魔王兔」换一张脸、名字变成「阿米娅-魔王」）；
+ *             不覆盖的部分继承主人格。退出子人格时再用同一个函数恢复。
  * @param {number} [throttleMs] 覆盖配置里的群名片间隔（测试时传 0 就不用等）
  * @returns {Promise<{avatar: string, nickname: string, cards: number, failed: number}>}
  */
-export async function applyIdentityAppearance({ api, identity, selfId, throttleMs }) {
+export async function applyIdentityAppearance({ api, identity, mode, selfId, throttleMs }) {
   const cfg = config.persona?.apply || {};
   const out = { avatar: 'skip', nickname: 'skip', cards: 0, failed: 0 };
 
   if (!identity) return out;
 
+  // 子人格优先，没有就继承主人格
+  const avatar = mode?.avatar || identity.avatar;
+  const nickname = mode?.nickname || identity.nickname;
+  const who = mode?.label ? `${identity.label}·${mode.label}` : identity.label;
+
   // ---- 头像（账号级） ----
   if (cfg.avatar !== false) {
-    if (!identity.avatar) {
-      log.debug(`主人格「${identity.label}」没配可用头像，跳过`);
+    if (!avatar) {
+      log.debug(`「${who}」没配可用头像，跳过`);
     } else {
-      const data = toBase64Url(identity.avatar);
+      const data = toBase64Url(avatar);
       if (!data) {
         out.avatar = 'fail';
       } else {
         try {
           await api.setAvatar(data.base64);
           out.avatar = 'ok';
-          log.info(`头像 → ${path.basename(identity.avatar)}`);
+          log.info(`头像 → ${path.basename(avatar)}（${who}）`);
         } catch (err) {
           out.avatar = 'fail';
           log.warn(`换头像失败：${err.message}`);
@@ -69,11 +77,11 @@ export async function applyIdentityAppearance({ api, identity, selfId, throttleM
   }
 
   // ---- QQ 昵称（账号级，默认关：影响面比群名片大） ----
-  if (cfg.nickname === true && identity.nickname) {
+  if (cfg.nickname === true && nickname) {
     try {
-      await api.setProfile({ nickname: identity.nickname });
+      await api.setProfile({ nickname });
       out.nickname = 'ok';
-      log.info(`QQ 昵称 → ${identity.nickname}`);
+      log.info(`QQ 昵称 → ${nickname}`);
     } catch (err) {
       out.nickname = 'fail';
       log.warn(`改 QQ 昵称失败：${err.message}`);
@@ -81,7 +89,7 @@ export async function applyIdentityAppearance({ api, identity, selfId, throttleM
   }
 
   // ---- 群名片（逐群） ----
-  if (cfg.groupCard !== false && identity.nickname && selfId) {
+  if (cfg.groupCard !== false && nickname && selfId) {
     const groups = await api.getGroupList();
     const gap =
       throttleMs != null ? Math.max(0, Number(throttleMs) || 0) : Math.max(0, Number(cfg.throttleMs) || 1500);
@@ -90,7 +98,7 @@ export async function applyIdentityAppearance({ api, identity, selfId, throttleM
       const gid = g?.group_id;
       if (!gid) continue;
       try {
-        await api.setGroupCard(gid, selfId, identity.nickname);
+        await api.setGroupCard(gid, selfId, nickname);
         out.cards += 1;
       } catch (err) {
         out.failed += 1;
@@ -100,7 +108,7 @@ export async function applyIdentityAppearance({ api, identity, selfId, throttleM
     }
 
     if (groups.length) {
-      log.info(`群名片 → ${identity.nickname}（成功 ${out.cards}，失败 ${out.failed}）`);
+      log.info(`群名片 → ${nickname}（成功 ${out.cards}，失败 ${out.failed}）`);
     }
   }
 

@@ -571,6 +571,7 @@ export class Brain {
     // 3) 全局退出词：任何子人格下都管用，否则切了别的就退不出来
     if (curMode && matchGlobalExit(text)) {
       this.#setMode(ctx.scope, '');
+      this.#applyModeLook({ identity, mode: null, prevMode: curMode });
       log.info(`子人格 → 正常：${ctx.scope}（${ctx.senderName}：${text.slice(0, 20)}）`);
       return { ack: curMode.ack.exit };
     }
@@ -582,6 +583,7 @@ export class Brain {
     const mode = hit.mode;
     if (hit.action === 'enter') {
       this.#setMode(ctx.scope, mode.key);
+      this.#applyModeLook({ identity, mode, prevMode: curMode });
       log.info(
         `子人格 → ${mode.label}：${ctx.scope}（${ctx.senderName}：${text.slice(0, 20)}）`
       );
@@ -591,6 +593,7 @@ export class Brain {
     // 退出：只有正处在那个子人格里才算，免得一句「不串了」把傲娇也关了
     if (curMode?.key !== mode.key) return null;
     this.#setMode(ctx.scope, '');
+    this.#applyModeLook({ identity, mode: null, prevMode: curMode });
     log.info(`子人格 → 正常：${ctx.scope}（${ctx.senderName}：${text.slice(0, 20)}）`);
     return { ack: mode.ack.exit };
   }
@@ -606,6 +609,7 @@ export class Brain {
     if (action === 'reset') {
       if (!curMode) return { ack: '已经是正常状态了。' };
       this.#setMode(ctx.scope, '');
+      this.#applyModeLook({ identity, mode: null, prevMode: curMode });
       log.info(`子人格 → 正常（命令）：${ctx.scope}`);
       return { ack: curMode.ack.exit };
     }
@@ -634,12 +638,34 @@ export class Brain {
     };
   }
 
-  /** 切子人格：只影响当前会话，不动头像和名片。 */
-  #switchMode({ target, curMode, ctx }) {
+  /**
+   * 子人格可能带自己的脸和名字（比如魔王兔）。
+   * 切进去、退出来时按需重设外观；普通子人格没有这几项就直接跳过，不打扰头像。
+   */
+  #applyModeLook({ identity, mode, prevMode }) {
+    if (!identity) return;
+    const touched = mode?.avatar || mode?.nickname || prevMode?.avatar || prevMode?.nickname;
+    if (!touched) return;
+
+    this.appearanceQueue = this.appearanceQueue
+      .then(() =>
+        applyIdentityAppearance({
+          api: this.api,
+          identity,
+          mode: mode || null, // 传 null = 回到主人格的样子
+          selfId: this.getSelfId(),
+        })
+      )
+      .catch((err) => log.warn(`切换外观失败：${err.message}`));
+  }
+
+  /** 切子人格：影响当前会话；带外观的子人格会顺带换脸换名。 */
+  #switchMode({ target, curMode, ctx, identity }) {
     if (!target.enabled) return { ack: `${target.label}还没上线，先占着位置。` };
     if (curMode?.key === target.key) return { ack: `已经是${target.label}了。` };
 
     this.#setMode(ctx.scope, target.key);
+    this.#applyModeLook({ identity, mode: target, prevMode: curMode });
     log.info(`子人格 → ${target.label}（命令）：${ctx.scope}`);
     return { ack: target.ack.enter };
   }

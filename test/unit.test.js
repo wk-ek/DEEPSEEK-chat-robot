@@ -383,3 +383,37 @@ test('要表情包时会给出一条明确指令', () => {
   // 普通聊天不该产生指令
   assert.equal(planStickerReply('今天天气不错', { mood: 'happy', favor: 50 }).want, false);
 });
+
+// ---------- 子人格的外观 ----------
+
+test('子人格可以有自己的头像和昵称，没有就继承', () => {
+  const cfg = {
+    identities: {
+      feiyu: { label: '大肥鱼', avatar: 'assets/avatar.png', nickname: '大肥鱼 Robot' },
+      amiya: {
+        label: '阿米娅',
+        avatar: 'assets/avatar_amiya.png',
+        nickname: '阿米娅',
+        modes: {
+          demon: {
+            label: '魔王兔',
+            avatar: 'assets/avatar_amiya_demon.png',
+            nickname: '阿米娅-魔王',
+          },
+        },
+      },
+    },
+    defaultIdentity: 'feiyu',
+  };
+  // 直接构造 normalizeMode 的结果形状来验证字段解析
+  const ids = normalizeIdentities(cfg);
+  const amiya = findIdentity('阿米娅', ids);
+  const demon = findMode(amiya, '魔王兔');
+  assert.ok(demon, '应该能找到魔王兔');
+  assert.ok(demon.avatar.endsWith('avatar_amiya_demon.png'), '魔王兔应有自己的头像');
+  assert.equal(demon.nickname, '阿米娅-魔王', '魔王兔应有自己的昵称');
+
+  // 主人格的外观还在，退出子人格时用它恢复
+  assert.ok(amiya.avatar.endsWith('avatar_amiya.png'));
+  assert.equal(amiya.nickname, '阿米娅');
+});
