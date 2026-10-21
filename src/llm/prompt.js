@@ -119,13 +119,27 @@ export function buildSystemPrompt({ state, memories, scope, identity, mode }) {
     const keys = stickerKeysFor({ mode, identity });
     if (keys.length) {
       const map = config.stickers.descriptions || {};
+      // 从可用表情里挑几个当示例，挑不到就退回第一个
+      const pick = (re) => keys.find((k) => re.test(k + ' ' + (map[k] || ''))) || keys[0];
+      const exShy = pick(/shy|害羞/);
+      const exConfused = pick(/confused|呆|懵/);
+      const exTired = pick(/sleepy|worried|困|担心/);
+
       parts.push(
         `【表情包】\n` +
           `你有这几张自己的表情图，在回复最末尾写标记就会变成图片发出去：\n` +
           keys.map((k) => `- [[sticker:${k}]]  ${map[k] || ''}`).join('\n') +
           `\n\n**这一轮只要有情绪反应，就在末尾带一张**，按上面每张图的说明挑最贴的那张。\n` +
           `绝大多数回复都应该带 —— 不带会显得很干、很像在念稿。\n` +
-          `**唯一的例外**：对方在讲正经事、难过的事、求助的时候，一张都不要带。\n` +
+          `\n格式就是这样（照着做）：\n` +
+          `  对方：「你今天好可爱」→ 你回：「……欸？突然这么说，我不知道该怎么接。谢谢您。[[sticker:${exShy}]]」\n` +
+          `  对方：「哈哈哈哈哈」→ 你回：「有什么好笑的呀……[[sticker:${exConfused}]]」\n` +
+          `  对方：「还不睡？」→ 你回：「您也还没睡啊。[[sticker:${exTired}]]」\n` +
+          `\n**但这样是错的（反例）**：\n` +
+          `  对方：「我考砸了，很丧」→ 你回：「……这样啊。[[sticker:${exTired}]]」  ← ❌ 这种时候配图很轻浮\n` +
+          `  对方：「我最近很难受」→ 你回：「嗯，我在听。[[sticker:${exShy}]]」  ← ❌ 一张都不要\n` +
+          `\n**规则（比上面的示例优先）**：对方在讲正经事、难过的事、求助、倾诉的时候，**一张都不要带**。\n` +
+          `表情只用在轻松、玩笑、被夸、被逗、关心对方日常这种场合。\n` +
           `这些是真正的图，不是 emoji。想表达情绪就用这个标记，不要拿 😏😤 这类文字表情凑数。\n` +
           `一轮最多一张，放在回复最末尾。`
       );

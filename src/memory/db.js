@@ -66,7 +66,10 @@ export function getDb() {
   if (db) return db;
   db = new DatabaseSync(PATHS.db);
   db.exec('PRAGMA journal_mode = WAL;');
-  db.exec('PRAGMA synchronous = NORMAL;');
+  // FULL：每次事务都 fsync 到磁盘。
+  // NORMAL 在 WAL 下不保证每次落盘 —— 关窗口强杀进程时，
+  // 最近写入的「当前人格」可能丢，重启就退回默认了。
+  db.exec('PRAGMA synchronous = FULL;');
   db.exec('PRAGMA busy_timeout = 5000;');
   db.exec(SCHEMA);
   log.info(`数据库就绪：${PATHS.db}`);
@@ -74,6 +77,12 @@ export function getDb() {
 }
 
 export function closeDb() {
+  try {
+    // 把 WAL 里的内容合并回主库，确保进程退出后状态一定还在
+    db?.exec('PRAGMA wal_checkpoint(TRUNCATE);');
+  } catch {
+    /* ignore */
+  }
   try {
     db?.close();
   } catch {

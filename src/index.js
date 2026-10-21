@@ -5,7 +5,8 @@ import { createApi } from './onebot/api.js';
 import { Brain } from './brain/reply.js';
 import { Proactive } from './brain/proactive.js';
 import { getDb, closeDb } from './memory/db.js';
-import { normalizeIdentities } from './persona/identities.js';
+import { kvGet } from './memory/store.js';
+import { normalizeIdentities, findIdentity, defaultIdentity } from './persona/identities.js';
 
 const log = createLogger('main');
 
@@ -34,6 +35,20 @@ async function main() {
   }
 
   getDb();
+
+  // 明确打印启动时用的是谁 —— 上次关窗口时如果停在阿米娅，这里就该显示阿米娅
+  try {
+    const ids = normalizeIdentities();
+    const savedKey = String(kvGet('persona:identity', '') || '');
+    const saved = savedKey ? findIdentity(savedKey, ids) : null;
+    const active = saved || defaultIdentity(ids);
+    log.info(
+      `当前主人格：${active.label}` +
+        (saved ? `（读取自数据库，上次退出时就是这个）` : `（数据库里没有记录，使用默认人格）`)
+    );
+  } catch (err) {
+    log.warn(`读取当前人格失败：${err.message}`);
+  }
 
   const client = new OneBotClient({
     url: envConfig.onebotWsUrl,
