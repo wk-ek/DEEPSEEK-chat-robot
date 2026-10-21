@@ -551,7 +551,13 @@ export class Brain {
   #handlePersona(ctx) {
     const text = String(ctx.text || '').trim();
     if (!text) return null;
-    if (ctx.isGroup && !ctx.atMe && !ctx.nameMention) return null;
+
+    // 群聊里默认必须 @ 她或叫名字，否则路人一句话就能改全群的人格。
+    // 但主人（guard.ownerUserIds）例外 —— 他说「切换成魔王兔」就是真要切，
+    // 不该逼他每次先打个 @。
+    const owners = (config.guard?.ownerUserIds || []).map(Number);
+    const isOwner = owners.includes(Number(ctx.userId));
+    if (ctx.isGroup && !ctx.atMe && !ctx.nameMention && !isOwner) return null;
 
     const state = this.#personaState(ctx.scope);
     const { identities, identity, mode: curMode } = state;

@@ -172,7 +172,8 @@
       },
       "amiya": {
         "label": "阿米娅",
-        "personaFile": "config/persona.amiya.example.md",
+        "personaFile": "config/persona.amiya.md",
+        "loreFile": "config/amiya.lore.md",
         "enabled": true,
         "trigger": "session",
         "enter": [
@@ -304,7 +305,8 @@
     "ignoreAtSelf": false,
     "ignoreOtherBots": true,
     "blacklistUserIds": [],
-    "groupWhitelist": []
+    "groupWhitelist": [],
+    "ownerUserIds": []
   },
   "stickers": {
     "enabled": true,

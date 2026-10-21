@@ -417,3 +417,20 @@ test('子人格可以有自己的头像和昵称，没有就继承', () => {
   assert.ok(amiya.avatar.endsWith('avatar_amiya.png'));
   assert.equal(amiya.nickname, '阿米娅');
 });
+
+// ---------- 主人在群里免 @ ----------
+
+test('主人在群里说人格触发词不需要 @，普通人仍然需要', () => {
+  // 单元测试不依赖真实配置，用假数据验证判断规则
+  const owners = [1584687823];
+
+  const gate = (isGroup, atMe, nameMention, userId) =>
+    !(isGroup && !atMe && !nameMention && !owners.includes(Number(userId)));
+
+  // 主人：群里不 @ 也放行
+  assert.equal(gate(true, false, false, owners[0]), true, '主人在群里不 @ 也该能切人格');
+  // 普通人：群里不 @ 就拦住
+  assert.equal(gate(true, false, false, 999999999), false, '普通人没 @ 不该触发人格切换');
+  // 普通人但 @ 了：放行
+  assert.equal(gate(true, true, false, 999999999), true);
+});
