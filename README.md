@@ -1,4 +1,4 @@
-# 小满 · QQ DeepSeek 机器人
+# 大肥鱼 · QQ DeepSeek 机器人
 
 一个跑在你自己电脑上的 QQ 机器人。用 DeepSeek 驱动，有固定人设、长期记忆，还会随着聊天慢慢对你产生好感和情绪变化。
 
@@ -210,10 +210,10 @@ npm run status
 
 ```jsonc
 {
-  "botName": "小满",              // 她叫什么，也用于匹配群里的呼叫
+  "botName": "大肥鱼",            // 她叫什么，也用于匹配群里的呼叫
   "reply": {
     "groupNeedMention": true,      // 群里必须 @ 或叫名字才回
-    "botAliases": ["小满", "满"],   // 群里叫这些名字也算叫她
+    "botAliases": ["大肥鱼", "肥鱼"], // 群里叫这些名字也算叫她
     "maxReplyChars": 260,          // 回复长度上限
     "debounceMs": 900,             // 连续消息合并窗口（避免一句句回）
     "maxContextMessages": 24       // 短期上下文条数
@@ -255,7 +255,7 @@ npm run status
 ```
 > 你好                    ← 直接输入 = 私聊
 > /g 大家好               ← 群聊（不@她，她应该不理）
-> /m 小满在吗             ← 群聊 @她
+> /m 大肥鱼在吗           ← 群聊 @她
 > /q                      ← 退出
 ```
 
