@@ -280,6 +280,7 @@ node scripts/try-persona.mjs 阿米娅 "你好" --dump            :: 连 system 
 | `npm run mock` | 启动模拟 QQ 服务端，手动输入消息调试 |
 | `node scripts/evolve.mjs` | **人格体检**：分析最近的对话，看她像不像人、该怎么调 |
 | `node scripts/push.mjs` | 推送到 GitHub（令牌从 `.env` 读） |
+| `node scripts/sync-public.mjs` | 把本地改动同步成可公开版本（剔除人格与私密数据） |
 
 ### 让人格越聊越像人
 
@@ -414,6 +415,46 @@ qq-deepseek-robot/
 
 ---
 
+## 开发方式：本地 / 公开 两个工作区
+
+这个项目开发时用的是**两个目录**，因为「跑起来」和「发出去」需要的东西不一样。
+
+| 工作区 | 用途 | 含人格 |
+| --- | --- | --- |
+| `qq-deepseek-robot`（本地） | 日常开发、调试、真正在跑的机器人 | 完整 |
+| `qq-deepseek-robot-public`（公开） | 这个仓库，用来提交和发布 | 只有两个示例 |
+
+**改动流程：**
+
+```bash
+# 1. 在本地改代码、调人格、跑起来看效果
+cd F:\qq-deepseek-robot
+
+# 2. 改完，同步到公开工作区（自动剔除人格和私密数据）
+node scripts/sync-public.mjs
+
+# 3. 在公开工作区跑测试，确认干净版本也能跑
+cd F:\qq-deepseek-robot-public
+npm test
+
+# 4. 提交推送
+git add -A && git commit -m "..." && git push
+```
+
+同步脚本会：
+
+- 排除 `.env`、`config/config.json`、五个人格文件、`HANDOFF.md`
+- 排除 `node_modules` / `data` / `logs` / `NapCat` / `*.log` / `*.db`
+- 把本地 `config.json` **脱敏**后写成 `config.example.json`
+  （清空主人 QQ、清空子人格、阿米娅指向示例人格）
+- 先清后复制，删掉的文件不会在目标里残留
+
+> 想只看会动哪些文件：`node scripts/sync-public.mjs --dry`
+
+好处是：**公开版本能独立跑通测试** —— 哪怕没有 `config.json`，代码会回落到内置默认值，
+说明它不依赖本地任何私有配置。
+
+---
 ## 哪些内容不在这个仓库里
 
 这个仓库**只放使用和框架**：代码、配置模板、文档、头像素材。
