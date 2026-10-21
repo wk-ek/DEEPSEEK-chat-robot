@@ -138,9 +138,14 @@ test('主人格：大肥鱼和阿米娅都是可用的', () => {
   assert.equal(amiya.modes.length, 0, '第一副面孔是主人格本身，暂时没有子人格');
   assert.ok(amiya.avatarConfigured.endsWith('avatar_amiya.png'));
 
-  // 表情包是大肥鱼的形象，阿米娅这边必须关掉，否则形象会串
-  assert.equal(amiya.stickersEnabled, false);
-  assert.deepEqual(stickerKeysFor({ mode: null, identity: amiya }), []);
+  // 阿米娅有自己的一套表情（8 张），跟大肥鱼的不能串
+  assert.equal(amiya.stickersEnabled, true);
+  const amiyaStickers = stickerKeysFor({ mode: null, identity: amiya });
+  assert.equal(amiyaStickers.length, 8, `阿米娅应该有 8 张表情，实际 ${amiyaStickers.length}`);
+  assert.ok(
+    amiyaStickers.every((k) => k.startsWith('amiya_')),
+    `阿米娅只能用自己那套表情，不该混进大肥鱼的：${amiyaStickers.join(', ')}`
+  );
 });
 
 test('子人格：大肥鱼下面挂三个，空 key 表示正常', () => {

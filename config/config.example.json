@@ -196,8 +196,17 @@
           "enter": "……博士。我回来了。",
           "exit": "嗯，我回罗德岛了。"
         },
-        "stickers": false,
-        "stickerKeys": [],
+        "stickers": true,
+        "stickerKeys": [
+          "amiya_happy",
+          "amiya_shy",
+          "amiya_worried",
+          "amiya_serious",
+          "amiya_confused",
+          "amiya_sad",
+          "amiya_sleepy",
+          "amiya_pout"
+        ],
         "modes": {}
       }
     }
@@ -303,7 +312,15 @@
       "smug": "cz_smug.png",
       "pout": "cz_pout.png",
       "tease": "cz_tease.png",
-      "deadpan": "cz_deadpan.png"
+      "deadpan": "cz_deadpan.png",
+      "amiya_happy": "amiya/amiya_happy.png",
+      "amiya_shy": "amiya/amiya_shy.png",
+      "amiya_worried": "amiya/amiya_worried.png",
+      "amiya_serious": "amiya/amiya_serious.png",
+      "amiya_confused": "amiya/amiya_confused.png",
+      "amiya_sad": "amiya/amiya_sad.png",
+      "amiya_sleepy": "amiya/amiya_sleepy.png",
+      "amiya_pout": "amiya/amiya_pout.png"
     },
     "chuanziKeys": [
       "smug",
@@ -325,7 +342,15 @@
       "smug": "得意/「就这」",
       "pout": "傲娇/哼",
       "tease": "挑衅/拆台",
-      "deadpan": "无语/嫌弃"
+      "deadpan": "无语/嫌弃",
+      "amiya_happy": "开心/被夸/答应了",
+      "amiya_shy": "害羞/不好意思/被戳中",
+      "amiya_worried": "着急/担心/催促",
+      "amiya_serious": "认真/坚定/要说重要的事",
+      "amiya_confused": "没听懂/疑惑/歪头",
+      "amiya_sad": "难过/失落/忍着",
+      "amiya_sleepy": "困/累/想睡",
+      "amiya_pout": "不满/小生气/撅嘴"
     }
   }
 }

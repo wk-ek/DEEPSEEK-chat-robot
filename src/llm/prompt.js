@@ -112,14 +112,22 @@ export function buildSystemPrompt({ state, memories, scope, identity, mode }) {
   if (config.stickers?.enabled && config.stickers.list) {
     const keys = stickerKeysFor({ mode, identity });
     if (keys.length) {
+      const map = config.stickers.descriptions || {};
       parts.push(
         `【表情包】\n` +
-          `你很喜欢甩表情。情绪到位时（被夸、得意、无语、被怼、犯饿、嘴硬），` +
-          `在回复最末尾加一个标记，它会变成图片发出去：\n` +
-          keys.map((k) => `- [[sticker:${k}]]`).join('\n') +
-          `\n${stickerDescFor(keys)}。\n` +
-          `重要：这些是真正的图，不是 emoji。该发表情的时候用这个标记，不要拿 😏😤 这种文字表情凑数。\n` +
-          `大概一半的回复要带一个。对方讲正经事或难过的事时不要带。`
+          `你有这几张自己的表情图，在回复最末尾写标记就会变成图片发出去：\n` +
+          keys.map((k) => `- [[sticker:${k}]]${map[k] ? `  ${map[k]}` : ''}`).join('\n') +
+          `\n\n**只要这一轮你有情绪反应，就带一张。** 对照着挑：\n` +
+          `- 被夸、被谢、被逗 → 带一张（挑「开心」或「害羞」那类）\n` +
+          `- 担心对方、催他去休息 → 挑「着急/担心」那类\n` +
+          `- 没听懂、对方说了奇怪的话 → 挑「疑惑」那类\n` +
+          `- 对方说了让你有点失落的话 → 挑「难过」那类\n` +
+          `- 对方惹你了、你不太高兴 → 挑「不满」那类\n` +
+          `- 深夜、累了 → 挑「困」那类\n` +
+          `\n做不到一半以上的回复都带，说明你太拘谨了。\n` +
+          `**唯一的例外**：对方在讲正经事、难过的事、求助的时候，一张都不要带。\n` +
+          `这些是真正的图，不是 emoji。想表达情绪就用这个标记，不要拿 😏😤 这类文字表情凑数。\n` +
+          `一轮最多一张，放在回复最末尾。`
       );
     }
   }
