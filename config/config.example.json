@@ -201,13 +201,15 @@
         "stickers": true,
         "stickerKeys": [
           "amiya_happy",
+          "amiya_smile",
           "amiya_shy",
           "amiya_worried",
-          "amiya_serious",
           "amiya_confused",
           "amiya_sad",
           "amiya_sleepy",
-          "amiya_pout"
+          "amiya_pout",
+          "amiya_angry",
+          "amiya_excited"
         ],
         "modes": {}
       }
@@ -318,13 +320,15 @@
       "tease": "cz_tease.png",
       "deadpan": "cz_deadpan.png",
       "amiya_happy": "amiya/amiya_happy.png",
+      "amiya_smile": "amiya/amiya_smile.png",
       "amiya_shy": "amiya/amiya_shy.png",
       "amiya_worried": "amiya/amiya_worried.png",
-      "amiya_serious": "amiya/amiya_serious.png",
       "amiya_confused": "amiya/amiya_confused.png",
       "amiya_sad": "amiya/amiya_sad.png",
       "amiya_sleepy": "amiya/amiya_sleepy.png",
-      "amiya_pout": "amiya/amiya_pout.png"
+      "amiya_pout": "amiya/amiya_pout.png",
+      "amiya_angry": "amiya/amiya_angry.png",
+      "amiya_excited": "amiya/amiya_excited.png"
     },
     "chuanziKeys": [
       "smug",
@@ -347,14 +351,16 @@
       "pout": "傲娇/哼",
       "tease": "挑衅/拆台",
       "deadpan": "无语/嫌弃",
-      "amiya_happy": "开心/被夸/答应了",
-      "amiya_shy": "害羞/不好意思/被戳中",
-      "amiya_worried": "着急/担心/催促",
-      "amiya_serious": "认真/坚定/要说重要的事",
-      "amiya_confused": "没听懂/疑惑/歪头",
-      "amiya_sad": "难过/失落/忍着",
-      "amiya_sleepy": "困/累/想睡",
-      "amiya_pout": "不满/小生气/撅嘴"
+      "amiya_happy": "被逗乐、大笑、开心的时候用",
+      "amiya_smile": "满意、温柔地笑、放心的时候用",
+      "amiya_shy": "被夸、被说可爱、被道谢、不好意思的时候用",
+      "amiya_worried": "担心对方、着急、催人去休息的时候用",
+      "amiya_confused": "没听懂、对方说了奇怪或者离谱的话的时候用",
+      "amiya_sad": "难过、失落、想哭但忍着的时候用",
+      "amiya_sleepy": "困了、累了、深夜还没睡的时候用",
+      "amiya_pout": "不太高兴、被冷落、鼓起腮帮子的时候用",
+      "amiya_angry": "真的被惹到、有点生气的时候用",
+      "amiya_excited": "期待、惊喜、眼睛发亮的时候用"
     }
   }
 }

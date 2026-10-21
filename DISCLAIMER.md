@@ -36,7 +36,8 @@
 | --- | --- | --- |
 | `config/persona.amiya.md` —— 阿米娅人格 | 二次创作 | 《明日方舟》（鹰角网络） |
 | `config/amiya.lore.md` —— 剧情知识库 | 二次创作 | 《明日方舟》（鹰角网络） |
-| `assets/avatar_amiya.png`、`assets/stickers/amiya/` | AI 生成的二次创作 | 《明日方舟》（鹰角网络） |
+| `assets/avatar_amiya.png` | AI 生成的二次创作 | 《明日方舟》（鹰角网络） |
+| `assets/stickers/amiya/` —— 10 张表情包 | **网友二创作品**（非本项目原创） | 作者：B站 uid `1833510361`，[原动态](https://www.bilibili.com/opus/1227053134110523399) |
 | `config/persona.md`、`persona.*.md` —— 大肥鱼人格 | 二次创作 | DeepSeek 品牌形象（社区二创延伸） |
 | `assets/avatar.png`、`assets/stickers/*.png` | AI 生成的二次创作 | 同上 |
 | `src/`、`scripts/`、`test/` —— 程序代码 | 本项目原创实现 | — |
@@ -118,6 +119,7 @@
 | **PRTS 明日方舟中文 Wiki** | 角色档案与语音资料参考 | 社区维基，内容版权归鹰角网络 |
 | [**HX0922/ark_story**](https://github.com/HX0922/ark_story) | 剧情文本提取工具（AGPL-3.0） | 本项目使用了其发布的数据成品，未修改其代码 |
 | [**littlepangding/arknights_lore_wiki**](https://github.com/littlepangding/arknights_lore_wiki) | 剧情总结的参考与交叉验证 | 该项目自述为 LLM 生成，可能存在幻觉 |
+| [**B站动态：阿米娅Q版表情包**](https://www.bilibili.com/opus/1227053134110523399) | `assets/stickers/amiya/` 下的 10 张表情包 | **网友二创作品**，作者 B站 uid `1833510361`；版权归原作者，本项目仅在非商业前提下使用 |
 
 ---
 
