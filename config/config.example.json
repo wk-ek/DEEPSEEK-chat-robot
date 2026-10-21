@@ -61,8 +61,7 @@
       },
       "amiya": {
         "label": "阿米娅",
-        "personaFile": "config/persona.amiya.md",
-        "loreFile": "config/amiya.lore.md",
+        "personaFile": "config/persona.amiya.example.md",
         "enabled": true,
         "trigger": "session",
         "enter": [
@@ -238,7 +237,7 @@
       "hungry": "饿/想吃/想摸鱼",
       "confused": "没听懂/懵",
       "smug": "得意/「就这」",
-      "pout": "有点小情绪/哼",
+      "pout": "傲娇/哼",
       "tease": "挑衅/拆台",
       "deadpan": "无语/嫌弃",
       "amiya_happy": "被逗乐、大笑、开心的时候用",
