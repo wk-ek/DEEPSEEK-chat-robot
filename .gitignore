@@ -16,6 +16,7 @@ config/persona.amiya.demon.md
 config/persona.chuanzi.md
 config/persona.tsundere.md
 config/persona.aggressive.md
+config/persona.erbao.md
 
 # ---- 开发交接文档（含大量内部实现与人格细节，不进版本库）----
 HANDOFF.md

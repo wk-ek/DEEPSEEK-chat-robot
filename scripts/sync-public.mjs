@@ -40,6 +40,7 @@ const PRIVATE_FILES = [
   'config/persona.chuanzi.md',
   'config/persona.tsundere.md',
   'config/persona.aggressive.md',
+  'config/persona.erbao.md',
   'HANDOFF.md',
 ];
 

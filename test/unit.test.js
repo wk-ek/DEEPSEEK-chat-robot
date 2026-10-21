@@ -121,9 +121,10 @@ test('parseJsonLoose 能吃代码块和脏文本', () => {
 
 // ---------- 人格：两层结构（主人格 + 子人格） ----------
 
-test('主人格：大肥鱼和阿米娅都是可用的', () => {
+test('主人格：至少两个（大肥鱼和阿米娅），都可用', () => {
   const ids = normalizeIdentities();
-  assert.equal(ids.length, 2);
+  // 主人格数量不做硬性限制 —— 想加几个加几个，这里只要求「至少这两个在」
+  assert.ok(ids.length >= 2, `至少要两个主人格，实际 ${ids.length}`);
 
   const feiyu = findIdentity('大肥鱼', ids);
   assert.ok(feiyu, '应该能找到大肥鱼');
