@@ -10,6 +10,7 @@
 # 仓库只提供基础模板：config/persona.amiya.example.md
 config/persona.amiya.md
 config/amiya.lore.md
+config/persona.amiya.demon.md
 
 # ---- 运行时生成 ----
 config/config.json
