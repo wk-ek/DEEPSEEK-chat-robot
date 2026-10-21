@@ -10,6 +10,7 @@ data/
 logs/
 *.log
 run.out
+*.out
 run.err
 
 # ---- 临时抓取的资料（网页原文，不进版本库） ----
