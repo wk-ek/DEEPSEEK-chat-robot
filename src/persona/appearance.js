@@ -39,7 +39,7 @@ function toBase64Url(file) {
 /**
  * 把某个主人格的外观应用上去。
  *
- * @param mode 子人格。子人格可以覆盖头像和昵称（比如「魔王兔」换一张脸、名字变成「阿米娅-魔王」）；
+ * @param mode 子人格。子人格可以覆盖头像和昵称（换一张脸、名字换成另一个）；
  *             不覆盖的部分继承主人格。退出子人格时再用同一个函数恢复。
  * @param {number} [throttleMs] 覆盖配置里的群名片间隔（测试时传 0 就不用等）
  * @returns {Promise<{avatar: string, nickname: string, cards: number, failed: number}>}

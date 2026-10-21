@@ -543,7 +543,7 @@ export class Brain {
    * 人格切换。三个入口，优先级从高到低：
    *   1. /persona 强制命令 —— 唯一能换主人格的入口（阿米娅就这么进）
    *   2. 全局退出词（正常点 / 变回来 ……）—— 只在已经处于某子人格时才生效
-   *   3. 会话识别触发词（当傲娇 / 攻击模式 ……）—— 只切子人格，不换人
+   *   3. 会话识别触发词（当<子人格> / <某>模式 ……）—— 只切子人格，不换人
    *
    * 群里必须 @ 她或叫名字才认，否则路人一句话就能把整个群的人格改了。
    * @returns {{ack: string}|null} 处理了就返回要说的那句，没碰就返回 null。
@@ -553,7 +553,7 @@ export class Brain {
     if (!text) return null;
 
     // 群聊里默认必须 @ 她或叫名字，否则路人一句话就能改全群的人格。
-    // 但主人（guard.ownerUserIds）例外 —— 他说「切换成魔王兔」就是真要切，
+    // 但主人（guard.ownerUserIds）例外 —— 他说「切换成某人格」就是真要切，
     // 不该逼他每次先打个 @。
     const owners = (config.guard?.ownerUserIds || []).map(Number);
     const isOwner = owners.includes(Number(ctx.userId));
@@ -596,7 +596,7 @@ export class Brain {
       return { ack: mode.ack.enter };
     }
 
-    // 退出：只有正处在那个子人格里才算，免得一句「不串了」把傲娇也关了
+    // 退出：只有正处在那个子人格里才算，免得一句「不X了」把别的子人格也关了
     if (curMode?.key !== mode.key) return null;
     this.#setMode(ctx.scope, '');
     this.#applyModeLook({ identity, mode: null, prevMode: curMode });
@@ -645,7 +645,7 @@ export class Brain {
   }
 
   /**
-   * 子人格可能带自己的脸和名字（比如魔王兔）。
+   * 子人格可以带自己的脸和名字（比如换一张头像、群名片改成「XX-另一面」）。
    * 切进去、退出来时按需重设外观；普通子人格没有这几项就直接跳过，不打扰头像。
    */
   #applyModeLook({ identity, mode, prevMode }) {

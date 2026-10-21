@@ -5,7 +5,7 @@
  *
  * 用法：
  *   node scripts/try-persona.mjs 阿米娅 "博士，今天好累啊"
- *   node scripts/try-persona.mjs 大肥鱼:傲娇 "你有想我吗"
+ *   node scripts/try-persona.mjs 大肥鱼:<子人格名> "你有想我吗"
  *   node scripts/try-persona.mjs 阿米娅 "第一句" "第二句" "第三句"   ← 多轮对话
  *
  * 加了 --dump 会把完整的 system prompt 也打出来，方便看模型到底收到了什么。
@@ -30,7 +30,7 @@ if (!who || !says.length) {
 用法：node scripts/try-persona.mjs <人格> "<对方说的话>" [更多句子...]
 
   人格写法： 阿米娅      → 主人格
-             大肥鱼:傲娇  → 主人格 + 子人格
+             大肥鱼:<名>  → 主人格 + 子人格
 
   可选：
     --dump            连 system prompt 一起打出来

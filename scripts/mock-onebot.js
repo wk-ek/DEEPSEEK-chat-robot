@@ -1,3 +1,4 @@
+import { config } from '../src/config.js';
 /**
  * 模拟 NapCat / OneBot v11 服务端，用来在没有 QQ 号的情况下把整条链路跑通。
  * 手写最小 WebSocket 服务端（不引第三方），只支持文本帧。
@@ -40,6 +41,10 @@ const TEST_USER = { user_id: 22222, nickname: '阿泽', card: '' };
 /** 第二个人，用来测「多人同时说话」 */
 const TEST_USER_B = { user_id: 33334, nickname: '小林', card: '' };
 const TEST_GROUP = { group_id: 33333, group_name: '测试群' };
+/** 配置里有没有子人格。公开仓库的配置模板是空的，这时跳过子人格相关测试。 */
+const HAS_MODES = Object.values(config.persona?.identities || {}).some(
+  (i) => i.modes && Object.keys(i.modes).length > 0
+);
 
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
@@ -371,8 +376,8 @@ async function runAutoTest() {
 
     await new Promise((r) => setTimeout(r, 1500));
 
-    // 确保从默认主人格开始 —— 上一次测试可能把身份留在了阿米娅身上，
-    // 那样「当傲娇」就找不到子人格了。这一步是给测试兜底。
+    // 确保从默认主人格开始 —— 上一次测试可能把身份留在了别的人格上，
+    // 那样子人格触发词就对不上了。这一步是给测试兜底。
     prog('reset identity');
     pushMessage({ type: 'private', text: '变回大肥鱼' });
     await new Promise((r) => setTimeout(r, 2000));
@@ -406,18 +411,28 @@ async function runAutoTest() {
     // 注意：切人格走的是 #handlePersona，不进 #flush，所以不消耗限流额度
 
     // 1) 会话识别：私聊说触发词就切子人格
-    const p4 = waitForReply((a, _p, t) => a === 'send_private_msg' && t.length > 0);
-    pushMessage({ type: 'private', text: '当傲娇' });
-    const r4 = await p4;
-    ok(`会话切傲娇 → ${r4.text}`);
-    if (!/谁要|就这一次/.test(r4.text)) fail(`傲娇的确认话术不对：${r4.text}`);
+    //    子人格是各家自己配的，公开仓库的模板里没有，没有就跳过这组
+    if (HAS_MODES) {
+      const firstMode = Object.values(config.persona.identities)
+        .flatMap((i) => (i.modes ? Object.values(i.modes) : []))
+        .find((m) => m && m.enabled !== false && m.enter && m.enter.length);
 
-    // 2) 全局退出词：任何子人格下都能回正常
-    const p5 = waitForReply((a, _p, t) => a === 'send_private_msg' && t.length > 0);
-    pushMessage({ type: 'private', text: '正常点' });
-    const r5 = await p5;
-    ok(`全局退出词生效 → ${r5.text}`);
-    if (!/变回来/.test(r5.text)) fail(`退出话术不对：${r5.text}`);
+      if (firstMode) {
+        const p4 = waitForReply((a, _p, t) => a === 'send_private_msg' && t.length > 0);
+        pushMessage({ type: 'private', text: firstMode.enter[0] });
+        const r4 = await p4;
+        ok(`会话切子人格 → ${r4.text}`);
+        if (r4.text !== firstMode.ack?.enter) fail(`子人格的确认话术不对：${r4.text}`);
+
+        // 2) 全局退出词：任何子人格下都能回正常
+        const p5 = waitForReply((a, _p, t) => a === 'send_private_msg' && t.length > 0);
+        pushMessage({ type: 'private', text: '正常点' });
+        const r5 = await p5;
+        ok(`全局退出词生效 → ${r5.text}`);
+      }
+    } else {
+      console.log(`${c.dim}  - 配置里没有子人格，跳过相关测试${c.reset}`);
+    }
 
     // 3) /persona 列表：要能看出主人格和子人格两层
     const p6 = waitForReply((a, _p, t) => a === 'send_private_msg' && t.length > 0);
@@ -431,18 +446,26 @@ async function runAutoTest() {
     // 4) 命令切子人格
     //    注意：这里故意不测切主人格。主人格是全局状态，e2e 跑的是真实数据库，
     //    一旦中途失败会把身份留在阿米娅，后续启动就变成别人了。
-    const p7 = waitForReply((a, _p, t) => a === 'send_private_msg' && t.length > 0);
-    pushMessage({ type: 'private', text: '/persona 子人格 毒舌' });
-    const r7 = await p7;
-    ok(`命令切子人格 → ${r7.text}`);
-    if (!/不留嘴/.test(r7.text)) fail(`切毒舌的确认话术不对：${r7.text}`);
+    if (HAS_MODES) {
+      const anyMode = Object.values(config.persona.identities)
+        .flatMap((i) => (i.modes ? Object.entries(i.modes) : []))
+        .find(([, m]) => m && m.enabled !== false);
 
-    // 5) 命令回正常
-    const p7b = waitForReply((a, _p, t) => a === 'send_private_msg' && t.length > 0);
-    pushMessage({ type: 'private', text: '/persona 默认' });
-    const r7b = await p7b;
-    ok(`命令回正常 → ${r7b.text}`);
-    if (!/收刀|变回来/.test(r7b.text)) fail(`回正常的话术不对：${r7b.text}`);
+      if (anyMode) {
+        const [modeKey, modeCfg] = anyMode;
+        const p7 = waitForReply((a, _p, t) => a === 'send_private_msg' && t.length > 0);
+        pushMessage({ type: 'private', text: `/persona 子人格 ${modeCfg.label || modeKey}` });
+        const r7 = await p7;
+        ok(`命令切子人格 → ${r7.text}`);
+        if (r7.text !== modeCfg.ack?.enter) fail(`确认话术不对：${r7.text}`);
+
+        // 5) 命令回正常
+        const p7b = waitForReply((a, _p, t) => a === 'send_private_msg' && t.length > 0);
+        pushMessage({ type: 'private', text: '/persona 默认' });
+        const r7b = await p7b;
+        ok(`命令回正常 → ${r7b.text}`);
+      }
+    }
 
     // 6) 阿米娅已经启用了，列表里不该再有「未启用」
     const p7c = waitForReply((a, _p, t) => a === 'send_private_msg' && t.length > 0);

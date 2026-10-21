@@ -154,15 +154,15 @@ npm run status
 | 层 | 有哪些 | 作用范围 |
 | --- | --- | --- |
 | 主人格 | 大肥鱼、阿米娅 | **全局**——头像和 QQ 昵称是账号级的，只能一起变 |
-| 子人格 | 正常、串子、傲娇、毒舌 | **按会话**——A 群切了不影响 B 群 |
+| 子人格 | 由你自己配（示例配置里为空） | **按会话**——A 群切了不影响 B 群 |
 
 ### 聊天里就能切子人格（要 @ 她或叫名字）
 
 ```
-@大肥鱼 当串子 / 整活          → 贱兮兮
-@大肥鱼 当傲娇 / 傲娇一点      → 嘴硬心软
-@大肥鱼 攻击模式 / 上强度      → 毒舌
-@大肥鱼 不串了 / 不傲娇了      → 退出那个
+@大肥鱼 当<子人格名>           → 进入
+@大肥鱼 <子人格名>模式          → 进入
+@大肥鱼 不<子人格名>了          → 退出那个
+@大肥鱼 正常点                  → 退出所有子人格
 @大肥鱼 正常点 / 变回来        → 不管在哪个，都回正常
 ```
 
@@ -183,7 +183,7 @@ npm run status
 ```
 /persona              → 看现在是谁、能切什么
 /persona 阿米娅        → 换人（会一并换头像和群名片）
-/persona 傲娇          → 换表现
+/persona <子人格名>    → 换表现
 /persona 默认          → 回正常
 ```
 
@@ -219,7 +219,7 @@ npm run status
 
 ```bat
 node scripts/try-persona.mjs 阿米娅 "博士，今天好累啊"
-node scripts/try-persona.mjs 大肥鱼:傲娇 "你有想我吗"
+node scripts/try-persona.mjs 大肥鱼:<子人格名> "你有想我吗"
 node scripts/try-persona.mjs 阿米娅 "第一句" "第二句"        :: 多轮
 node scripts/try-persona.mjs 阿米娅 "你好" --dump            :: 连 system prompt 一起看
 ```
@@ -429,9 +429,9 @@ qq-deepseek-robot/
 
 | 文件 | 为什么不在 |
 | --- | --- |
-| `config/persona.amiya.md` | 完整的阿米娅人格。说话方式是从 5790 条游戏台词统计出来的（省略号分布、句长、高频词…），是私有资产。 |
+| `config/persona.amiya.md` | 完整的阿米娅人格。说话方式是从游戏台词里统计出来的（省略号分布、句长、高频词…），是私有资产。 |
 | `config/amiya.lore.md` | 从游戏剧情文本提取的剧情知识库。 |
-| `config/persona.amiya.demon.md` | 第二个人格（魔王兔），基于剧情文本精修。 |
+| `config/persona.amiya.demon.md` | 同角色的第二副面孔，基于剧情文本精修。 |
 | `config/persona.chuanzi.md`<br>`config/persona.tsundere.md`<br>`config/persona.aggressive.md` | 三个子人格，属于人格设计。 |
 | `data/bot.db` | 真实聊天记录、好友 QQ 号、好感度数据。 |
 | `.env` | API 密钥、推送令牌。 |

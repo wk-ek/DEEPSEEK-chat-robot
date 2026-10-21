@@ -135,7 +135,7 @@ test('主人格：大肥鱼和阿米娅都是可用的', () => {
   const amiya = findIdentity('阿米娅', ids);
   assert.ok(amiya, '应该能找到阿米娅');
   assert.equal(amiya.enabled, true, '阿米娅现在应该已启用');
-  assert.ok(amiya.modes.length >= 0, '阿米娅可以有子人格（比如魔王兔），但不强求');
+  assert.ok(amiya.modes.length >= 0, '阿米娅可以有子人格，但不强求');
   assert.ok(amiya.avatarConfigured.endsWith('avatar_amiya.png'));
 
   // 阿米娅有自己的一套表情（10 张官方 Q 版），跟大肥鱼的不能串
@@ -148,52 +148,63 @@ test('主人格：大肥鱼和阿米娅都是可用的', () => {
   );
 });
 
-test('子人格：大肥鱼下面挂三个，空 key 表示正常', () => {
-  const feiyu = findIdentity('大肥鱼', normalizeIdentities());
+// 测试用的人格配置：只验证「机制」，跟真实人格无关。
+// 这样仓库里不带任何具体人设，测试仍然能跑。
+const FIXTURE = {
+  identities: {
+    demo: {
+      label: '演示角色',
+      aliases: ['演示角色'],
+      modes: {
+        calm: { label: '温和', trigger: 'session', enabled: true, enter: ['当温和', '温和一点'], exit: ['不温和了'] },
+        sharp: { label: '锋利', trigger: 'session', enabled: true, enter: ['当锋利', '上强度'], exit: ['不锋利了'] },
+      },
+    },
+  },
+  defaultIdentity: 'demo',
+};
 
-  assert.equal(feiyu.modes.length, 3);
-  assert.deepEqual(feiyu.modes.map((m) => m.key).sort(), ['aggressive', 'chuanzi', 'tsundere']);
+test('子人格：挂在主人格下面，空 key 表示正常', () => {
+  const demo = findIdentity('演示角色', normalizeIdentities(FIXTURE));
 
-  assert.equal(modeOf(feiyu, 'tsundere').label, '傲娇');
-  assert.equal(modeOf(feiyu, 'aggressive').label, '毒舌');
-  assert.equal(modeOf(feiyu, 'chuanzi').label, '串子');
+  assert.equal(demo.modes.length, 2);
+  assert.deepEqual(demo.modes.map((m) => m.key).sort(), ['calm', 'sharp']);
+  assert.equal(modeOf(demo, 'calm').label, '温和');
+  assert.equal(modeOf(demo, 'sharp').label, '锋利');
 
   // 空 key / 不认识 = 正常状态，返回 null 而不是报错
-  assert.equal(modeOf(feiyu, ''), null);
-  assert.equal(modeOf(feiyu, '不存在'), null);
+  assert.equal(modeOf(demo, ''), null);
+  assert.equal(modeOf(demo, '不存在'), null);
 });
 
 test('会话识别：说对触发词就切子人格', () => {
-  const feiyu = findIdentity('大肥鱼', normalizeIdentities());
+  const demo = findIdentity('演示角色', normalizeIdentities(FIXTURE));
 
-  assert.equal(matchSessionMode('当傲娇', feiyu).mode.key, 'tsundere');
-  assert.equal(matchSessionMode('傲娇一点嘛', feiyu).mode.key, 'tsundere');
-  assert.equal(matchSessionMode('给我上强度', feiyu).mode.key, 'aggressive');
-  assert.equal(matchSessionMode('开启攻击', feiyu).mode.key, 'aggressive');
-  assert.equal(matchSessionMode('当串子', feiyu).mode.key, 'chuanzi');
+  assert.equal(matchSessionMode('当温和', demo).mode.key, 'calm');
+  assert.equal(matchSessionMode('温和一点', demo).mode.key, 'calm');
+  assert.equal(matchSessionMode('当锋利', demo).mode.key, 'sharp');
+  assert.equal(matchSessionMode('上强度', demo).mode.key, 'sharp');
 
-  const out = matchSessionMode('不傲娇了', feiyu);
+  const out = matchSessionMode('不温和了', demo);
   assert.equal(out.action, 'exit');
-  assert.equal(out.mode.key, 'tsundere');
+  assert.equal(out.mode.key, 'calm');
 });
 
 test('会话识别：否定句和普通聊天不该误触发', () => {
-  const feiyu = findIdentity('大肥鱼', normalizeIdentities());
+  const demo = findIdentity('演示角色', normalizeIdentities(FIXTURE));
 
   // 触发词前面有「别 / 不要」时不算 —— 否则吵架时会莫名切人格
-  assert.equal(matchSessionMode('别上强度', feiyu), null);
-  assert.equal(matchSessionMode('不要毒舌一点', feiyu), null);
-  assert.equal(matchSessionMode('别开启攻击', feiyu), null);
+  assert.equal(matchSessionMode('别上强度', demo), null);
 
   // 去掉否定就该正常触发
-  assert.equal(matchSessionMode('上强度', feiyu).mode.key, 'aggressive');
+  assert.equal(matchSessionMode('上强度', demo).mode.key, 'sharp');
 
   // 「正常点」是全局退出词，走另一条路径，不该被当成会话触发
-  assert.equal(matchSessionMode('正常点', feiyu), null);
-  assert.equal(matchSessionMode('今天天气不错', feiyu), null);
-  assert.equal(matchSessionMode('', feiyu), null);
+  assert.equal(matchSessionMode('正常点', demo), null);
+  assert.equal(matchSessionMode('今天天气不错', demo), null);
+  assert.equal(matchSessionMode('', demo), null);
   // 太长的句子不当指令
-  assert.equal(matchSessionMode('我跟你说你别上强度这句话听明白没有啊啊', feiyu), null);
+  assert.equal(matchSessionMode('我跟你说你别上强度这句话听明白没有啊啊', demo), null);
 });
 
 test('全局退出词：任何子人格下都能回正常', () => {
@@ -207,7 +218,7 @@ test('全局退出词：任何子人格下都能回正常', () => {
 test('/persona 命令解析', () => {
   assert.deepEqual(parsePersonaCommand('/persona 阿米娅'), { prefix: '/persona', rest: '阿米娅' });
   assert.deepEqual(parsePersonaCommand('/人格默认'), { prefix: '/人格', rest: '默认' });
-  assert.deepEqual(parsePersonaCommand('/PERSONA 傲娇'), { prefix: '/persona', rest: '傲娇' });
+  assert.deepEqual(parsePersonaCommand('/PERSONA Demo'), { prefix: '/persona', rest: 'Demo' });
   assert.equal(parsePersonaCommand('阿米娅'), null);
   assert.equal(parsePersonaCommand(''), null);
 
@@ -216,44 +227,44 @@ test('/persona 命令解析', () => {
   assert.deepEqual(parseCommandArg('默认'), { action: 'reset' });
   assert.deepEqual(parseCommandArg('off'), { action: 'reset' });
   assert.deepEqual(parseCommandArg('主人格 阿米娅'), { action: 'identity', token: '阿米娅' });
-  assert.deepEqual(parseCommandArg('子人格 傲娇'), { action: 'mode', token: '傲娇' });
-  assert.deepEqual(parseCommandArg('傲娇'), { action: 'auto', token: '傲娇' });
+  assert.deepEqual(parseCommandArg('子人格 Demo'), { action: 'mode', token: 'Demo' });
+  assert.deepEqual(parseCommandArg('Demo'), { action: 'auto', token: 'Demo' });
 });
 
-test('列表文案带上现在的主人格、子人格和已启用的阿米娅', () => {
-  const ids = normalizeIdentities();
-  const feiyu = findIdentity('大肥鱼', ids);
-  const text = describePersona(ids, feiyu, findMode(feiyu, '傲娇'));
+test('列表文案带上当前主人格、子人格和已启用的角色', () => {
+  const ids = normalizeIdentities(FIXTURE);
+  const demo = findIdentity('演示角色', ids);
+  const text = describePersona(ids, demo, findMode(demo, '温和'));
 
-  assert.ok(text.includes('大肥鱼'), text);
-  assert.ok(text.includes('傲娇'), text);
-  assert.ok(text.includes('阿米娅'), text);
+  assert.ok(text.includes('演示角色'), text);
+  assert.ok(text.includes('温和'), text);
   assert.ok(!text.includes('未启用'), `两个主人格都已启用，不该出现「未启用」：${text}`);
   assert.ok(text.includes('/persona'), text);
   assert.ok(text.length < 260, `列表太长了（${text.length} 字），QQ 消息会不方便看`);
 });
 
 test('表情包按人格挑：子人格 > 主人格 > 默认', () => {
-  const feiyu = findIdentity('大肥鱼', normalizeIdentities());
+  const own = {
+    identities: {
+      demo: {
+        label: '演示角色',
+        stickers: true,
+        stickerKeys: ['happy', 'sleepy'],
+        modes: {
+          calm: { label: '温和', trigger: 'session', enabled: true, stickerKeys: ['pout'] },
+        },
+      },
+    },
+    defaultIdentity: 'demo',
+  };
+  const demo = findIdentity('演示角色', normalizeIdentities(own));
 
-  // 子人格优先（结果按 stickers.list 的键顺序，不是配置里的书写顺序）
-  assert.deepEqual(stickerKeysFor({ mode: modeOf(feiyu, 'tsundere'), identity: feiyu }), [
-    'confused',
-    'smug',
-    'pout',
-    'tease',
-  ]);
-
+  // 子人格优先
+  assert.deepEqual(stickerKeysFor({ mode: modeOf(demo, 'calm'), identity: demo }), ['pout']);
   // 正常状态用主人格那套
-  assert.deepEqual(stickerKeysFor({ mode: null, identity: feiyu }), [
-    'happy',
-    'sleepy',
-    'hungry',
-    'confused',
-  ]);
-
+  assert.deepEqual(stickerKeysFor({ mode: null, identity: demo }), ['happy', 'sleepy']);
   // 什么都没有时回落 defaultKeys
-  assert.deepEqual(stickerKeysFor({}), ['happy', 'sleepy', 'hungry', 'confused']);
+  assert.ok(Array.isArray(stickerKeysFor({})) && stickerKeysFor({}).length > 0);
 });
 
 // ---------- 说话切换主人格 ----------
@@ -396,7 +407,7 @@ test('子人格可以有自己的头像和昵称，没有就继承', () => {
         nickname: '阿米娅',
         modes: {
           demon: {
-            label: '魔王兔',
+            label: '测试子人格',
             avatar: 'assets/avatar_amiya_demon.png',
             nickname: '阿米娅-魔王',
           },
@@ -408,10 +419,10 @@ test('子人格可以有自己的头像和昵称，没有就继承', () => {
   // 直接构造 normalizeMode 的结果形状来验证字段解析
   const ids = normalizeIdentities(cfg);
   const amiya = findIdentity('阿米娅', ids);
-  const demon = findMode(amiya, '魔王兔');
-  assert.ok(demon, '应该能找到魔王兔');
-  assert.ok(demon.avatar.endsWith('avatar_amiya_demon.png'), '魔王兔应有自己的头像');
-  assert.equal(demon.nickname, '阿米娅-魔王', '魔王兔应有自己的昵称');
+  const demon = findMode(amiya, '测试子人格');
+  assert.ok(demon, '应该能找到子人格');
+  assert.ok(demon.avatar.endsWith('avatar_amiya_demon.png'), '子人格应有自己的头像');
+  assert.equal(demon.nickname, '阿米娅-魔王', '子人格应有自己的昵称');
 
   // 主人格的外观还在，退出子人格时用它恢复
   assert.ok(amiya.avatar.endsWith('avatar_amiya.png'));

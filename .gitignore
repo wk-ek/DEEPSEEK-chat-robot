@@ -17,6 +17,9 @@ config/persona.chuanzi.md
 config/persona.tsundere.md
 config/persona.aggressive.md
 
+# ---- 开发交接文档（含大量内部实现与人格细节，不进版本库）----
+HANDOFF.md
+
 # ---- 运行时生成 ----
 config/config.json
 data/
