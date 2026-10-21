@@ -35,7 +35,7 @@ function prog(msg) {
 const PORT = Number(process.argv.find((a) => a.startsWith('--port='))?.split('=')[1]) || 3001;
 const MODE = process.argv.includes('--auto') ? 'auto' : 'interactive';
 const SELF_ID = '10000';
-const BOT_NAME = '小满';
+const BOT_NAME = '大肥鱼';
 const TEST_USER = { user_id: 22222, nickname: '阿泽', card: '' };
 const TEST_GROUP = { group_id: 33333, group_name: '测试群' };
 
@@ -420,12 +420,28 @@ async function runAutoTest() {
       if (!r6.text.includes(need)) fail(`列表里应该有「${need}」，实际：${r6.text}`);
     }
 
-    // 4) 阿米娅是强制命令才能进的占位人格，现在还没启用，应该被拦住
+    // 4) 命令切子人格
+    //    注意：这里故意不测切主人格。主人格是全局状态，e2e 跑的是真实数据库，
+    //    一旦中途失败会把身份留在阿米娅，后续启动就变成别人了。
     const p7 = waitForReply((a, _p, t) => a === 'send_private_msg' && t.length > 0);
-    pushMessage({ type: 'private', text: '/persona 阿米娅' });
+    pushMessage({ type: 'private', text: '/persona 子人格 毒舌' });
     const r7 = await p7;
-    ok(`阿米娅占位被拦 → ${r7.text}`);
-    if (!/还没上线/.test(r7.text)) fail(`阿米娅应该回「还没上线」，实际：${r7.text}`);
+    ok(`命令切子人格 → ${r7.text}`);
+    if (!/不留嘴/.test(r7.text)) fail(`切毒舌的确认话术不对：${r7.text}`);
+
+    // 5) 命令回正常
+    const p7b = waitForReply((a, _p, t) => a === 'send_private_msg' && t.length > 0);
+    pushMessage({ type: 'private', text: '/persona 默认' });
+    const r7b = await p7b;
+    ok(`命令回正常 → ${r7b.text}`);
+    if (!/收刀|变回来/.test(r7b.text)) fail(`回正常的话术不对：${r7b.text}`);
+
+    // 6) 阿米娅已经启用了，列表里不该再有「未启用」
+    const p7c = waitForReply((a, _p, t) => a === 'send_private_msg' && t.length > 0);
+    pushMessage({ type: 'private', text: '/persona' });
+    const r7c = await p7c;
+    if (r7c.text.includes('未启用')) fail(`阿米娅已启用，列表里不该出现「未启用」：${r7c.text}`);
+    ok(`人格列表里两个主人格都已启用 → ${r7c.text.replace(/\s+/g, ' ')}`);
 
     // 5) 群里不 @ 她时说触发词不该生效，否则路人一句话就能改全群人格
     let silent2 = true;

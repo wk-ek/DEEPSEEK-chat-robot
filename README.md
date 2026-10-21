@@ -150,7 +150,7 @@ npm run status
 
 | 层 | 有哪些 | 作用范围 |
 | --- | --- | --- |
-| 主人格 | 大肥鱼、阿米娅（占位） | **全局**——头像和 QQ 昵称是账号级的，只能一起变 |
+| 主人格 | 大肥鱼、阿米娅 | **全局**——头像和 QQ 昵称是账号级的，只能一起变 |
 | 子人格 | 正常、串子、傲娇、毒舌 | **按会话**——A 群切了不影响 B 群 |
 
 ### 聊天里就能切子人格（要 @ 她或叫名字）
@@ -173,8 +173,9 @@ npm run status
 ```
 
 > ⚠️ **换主人格是真的「换人」**：头像会变，所有群的名片也会跟着变。
-> 阿米娅目前是占位状态（`enabled: false`），命令会被拦住回「还没上线」。
 > 不想要这些副作用，可以在 `config.json` → `persona.apply` 里关掉 `avatar` / `groupCard`。
+>
+> 阿米娅目前是「人格一：罗德岛的阿米娅」，表情包暂时关着——现有 8 张图都是大肥鱼的形象，发出来会串味。
 
 ---
 
@@ -196,6 +197,19 @@ npm run status
 | 太冷淡 | 提高 `emotion.initialFavor`，或在 persona 里加「对熟一点的人会主动多说一句」 |
 | 复读 | 调高 `.env` 里的 `DEEPSEEK_TEMPERATURE`（0.8~1.1） |
 | 记不住事 | 降低 `memory.summarizeEveryMessages`，或手动往 `memories` 表插 |
+
+### 改完怎么验证
+
+不用真去群里试，直接本地聊一句，只调一次模型：
+
+```bat
+node scripts/try-persona.mjs 阿米娅 "博士，今天好累啊"
+node scripts/try-persona.mjs 大肥鱼:傲娇 "你有想我吗"
+node scripts/try-persona.mjs 阿米娅 "第一句" "第二句"        :: 多轮
+node scripts/try-persona.mjs 阿米娅 "你好" --dump            :: 连 system prompt 一起看
+```
+
+不碰数据库、不发消息、只调模型。调人格文字时比在群里试快得多。
 
 ---
 
@@ -310,7 +324,7 @@ qq-deepseek-robot/
 │   ├── persona.chuanzi.md    # ★ 子人格：串子
 │   ├── persona.tsundere.md   # ★ 子人格：傲娇
 │   ├── persona.aggressive.md # ★ 子人格：毒舌
-│   └── persona.amiya.md      # ★ 主人格：阿米娅（占位）
+│   └── persona.amiya.md      # ★ 主人格：阿米娅
 ├── assets/
 │   ├── avatar.png            # 大肥鱼头像
 │   ├── avatar_amiya.png      # 阿米娅头像

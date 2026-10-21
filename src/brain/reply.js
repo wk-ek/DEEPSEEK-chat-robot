@@ -344,7 +344,13 @@ export class Brain {
       0,
       config.guard?.maxInputChars || 2000
     );
-    const nameMention = mentionsName(text, config.reply.botAliases);
+    // 叫名字也要认当前主人格的别名 —— 切成阿米娅以后，「阿米娅在吗」也得算叫她
+    const scopeKey = scopeOf({ type: isGroup ? 'group' : 'private', userId, groupId });
+    const activeIdentity = this.#personaState(scopeKey).identity;
+    const nameAliases = [
+      ...new Set([...(config.reply.botAliases || []), ...((activeIdentity && activeIdentity.aliases) || [])]),
+    ];
+    const nameMention = mentionsName(text, nameAliases);
 
     const ctx = {
       ev,
@@ -355,7 +361,7 @@ export class Brain {
       text,
       atMe,
       nameMention,
-      scope: scopeOf({ type: isGroup ? 'group' : 'private', userId, groupId }),
+      scope: scopeKey,
       scopeType: isGroup ? 'group' : 'private',
       groupName: ev.group_name,
     };
@@ -770,7 +776,7 @@ export class Brain {
       return;
     }
 
-    const rawReply = sanitizeReply(raw);
+    const rawReply = sanitizeReply(raw, identity?.label || config.botName);
     const { text: reply, sticker } = extractSticker(rawReply);
     if (!reply && !sticker) {
       log.warn('模型返回空内容，跳过');

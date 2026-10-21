@@ -164,7 +164,7 @@
       "amiya": {
         "label": "阿米娅",
         "personaFile": "config/persona.amiya.md",
-        "enabled": false,
+        "enabled": true,
         "aliases": [
           "阿米娅",
           "amiya",
@@ -173,14 +173,11 @@
         "avatar": "assets/avatar_amiya.png",
         "nickname": "阿米娅",
         "ack": {
-          "enter": "……博士。我在。",
+          "enter": "……博士。我回来了。",
           "exit": "嗯，我回罗德岛了。"
         },
-        "stickerKeys": [
-          "happy",
-          "confused",
-          "sleepy"
-        ],
+        "stickers": false,
+        "stickerKeys": [],
         "modes": {}
       }
     }

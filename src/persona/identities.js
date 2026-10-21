@@ -103,6 +103,8 @@ function normalizeIdentity(key, raw) {
       exit: String(raw.ack?.exit || DEFAULT_EXIT_ACK),
     },
     stickerKeys: Array.isArray(raw.stickerKeys) ? raw.stickerKeys.map(String) : [],
+    // 表情包是「大肥鱼」的形象图，换主人格后发出来会串味，所以可整个关掉
+    stickersEnabled: raw.stickers !== false,
     modes,
   };
 }
@@ -282,6 +284,8 @@ export function describePersona(identities, curIdentity, curMode) {
 export function stickerKeysFor({ mode = null, identity = null, stickerCfg = config.stickers } = {}) {
   const all = Object.keys(stickerCfg?.list || {});
   if (!all.length) return [];
+  // 主人格明确关掉表情包（比如形象对不上），就别硬塞
+  if (identity && identity.stickersEnabled === false) return [];
 
   const pick = (list) => (Array.isArray(list) ? all.filter((k) => list.includes(k)) : []);
 

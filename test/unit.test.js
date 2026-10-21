@@ -119,7 +119,7 @@ test('parseJsonLoose 能吃代码块和脏文本', () => {
 
 // ---------- 人格：两层结构（主人格 + 子人格） ----------
 
-test('主人格：大肥鱼在用，阿米娅占位', () => {
+test('主人格：大肥鱼和阿米娅都是可用的', () => {
   const ids = normalizeIdentities();
   assert.equal(ids.length, 2);
 
@@ -132,9 +132,13 @@ test('主人格：大肥鱼在用，阿米娅占位', () => {
 
   const amiya = findIdentity('阿米娅', ids);
   assert.ok(amiya, '应该能找到阿米娅');
-  assert.equal(amiya.enabled, false, '阿米娅现在应该是占位未启用');
-  assert.equal(amiya.modes.length, 0, '阿米娅暂时没有子人格');
+  assert.equal(amiya.enabled, true, '阿米娅现在应该已启用');
+  assert.equal(amiya.modes.length, 0, '第一副面孔是主人格本身，暂时没有子人格');
   assert.ok(amiya.avatarConfigured.endsWith('avatar_amiya.png'));
+
+  // 表情包是大肥鱼的形象，阿米娅这边必须关掉，否则形象会串
+  assert.equal(amiya.stickersEnabled, false);
+  assert.deepEqual(stickerKeysFor({ mode: null, identity: amiya }), []);
 });
 
 test('子人格：大肥鱼下面挂三个，空 key 表示正常', () => {
@@ -209,14 +213,15 @@ test('/persona 命令解析', () => {
   assert.deepEqual(parseCommandArg('傲娇'), { action: 'auto', token: '傲娇' });
 });
 
-test('列表文案带上现在的主人格、子人格和禁用的阿米娅', () => {
+test('列表文案带上现在的主人格、子人格和已启用的阿米娅', () => {
   const ids = normalizeIdentities();
   const feiyu = findIdentity('大肥鱼', ids);
   const text = describePersona(ids, feiyu, findMode(feiyu, '傲娇'));
 
   assert.ok(text.includes('大肥鱼'), text);
   assert.ok(text.includes('傲娇'), text);
-  assert.ok(text.includes('阿米娅（未启用）'), text);
+  assert.ok(text.includes('阿米娅'), text);
+  assert.ok(!text.includes('未启用'), `两个主人格都已启用，不该出现「未启用」：${text}`);
   assert.ok(text.includes('/persona'), text);
   assert.ok(text.length < 260, `列表太长了（${text.length} 字），QQ 消息会不方便看`);
 });
