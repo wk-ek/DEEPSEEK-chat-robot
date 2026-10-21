@@ -1,0 +1,31 @@
+# ---- 密钥：绝不提交 ----
+.env
+.env.local
+*.pem
+*.key
+
+# ---- 运行时生成 ----
+config/config.json
+data/
+logs/
+*.log
+run.out
+run.err
+
+# ---- 数据库兜底（真实聊天记录，含 QQ 号） ----
+*.db
+*.db-shm
+*.db-wal
+
+# ---- 第三方：NapCat 是一整套 QQ 客户端，1.6GB，自己下 ----
+NapCat/
+
+# ---- 依赖 ----
+node_modules/
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+desktop.ini

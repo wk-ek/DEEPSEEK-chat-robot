@@ -1,0 +1,20 @@
+{
+  "name": "qq-deepseek-robot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "QQ 机器人：NapCat(OneBot v11) + DeepSeek，带人设、长期记忆与情绪状态。零第三方依赖。",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "mock": "node scripts/mock-onebot.js",
+    "e2e": "node scripts/e2e.js",
+    "fetch-napcat": "node scripts/fetch-napcat.mjs",
+    "doctor": "node scripts/doctor.js",
+    "status": "node scripts/status.js",
+    "test": "node --test --test-isolation=none ./test/unit.test.js"
+  }
+}
