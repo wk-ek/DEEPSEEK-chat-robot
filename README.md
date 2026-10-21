@@ -324,7 +324,8 @@ qq-deepseek-robot/
 │   ├── persona.chuanzi.md    # ★ 子人格：串子
 │   ├── persona.tsundere.md   # ★ 子人格：傲娇
 │   ├── persona.aggressive.md # ★ 子人格：毒舌
-│   └── persona.amiya.md      # ★ 主人格：阿米娅
+│   ├── persona.amiya.md      # ★ 主人格：阿米娅
+│   └── amiya.lore.md         # ★ 阿米娅记得的剧情（世界观/主线/支线）
 ├── assets/
 │   ├── avatar.png            # 大肥鱼头像
 │   ├── avatar_amiya.png      # 阿米娅头像

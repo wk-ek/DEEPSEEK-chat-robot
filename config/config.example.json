@@ -164,6 +164,7 @@
       "amiya": {
         "label": "阿米娅",
         "personaFile": "config/persona.amiya.md",
+        "loreFile": "config/amiya.lore.md",
         "enabled": true,
         "aliases": [
           "阿米娅",

@@ -51,6 +51,15 @@ export function buildSystemPrompt({ state, memories, scope, identity, mode }) {
   const baseFile = identity?.personaFile || config.personaFile;
   parts.push(`【你是谁】\n${personaText(baseFile)}`);
 
+  // 剧情知识库：不是让模型背设定，是让它「回忆」
+  if (identity?.loreFile) {
+    parts.push(
+      `【你亲身经历过的事】\n${personaText(identity.loreFile)}\n\n` +
+        `以上是你的记忆，不是要背诵的资料。别人聊到相关话题时自然地回忆，` +
+        `不要主动复述剧情、不要像在念年表。不知道的部分就说不知道。`
+    );
+  }
+
   // 子人格是一次「换装」，不换人：明确告诉模型以这一节为准，压住底子里的冲突描述
   if (mode?.file) {
     parts.push(

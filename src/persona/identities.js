@@ -95,6 +95,8 @@ function normalizeIdentity(key, raw) {
     enabled: raw.enabled !== false,
     aliases: [...new Set([...(raw.aliases || []), label, key].map(String).filter(Boolean))],
     personaFile: resolveFile(raw.personaFile || config.personaFile),
+    // 可选：这个人格「记得的事」（剧情知识库），会拼在人格之后
+    loreFile: resolveFile(raw.loreFile || ''),
     avatar: avatarExists ? avatarAbs : '',
     avatarConfigured: avatarAbs,
     nickname: String(raw.nickname || config.botName || label),
