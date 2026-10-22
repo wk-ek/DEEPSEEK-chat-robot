@@ -251,5 +251,8 @@
       "amiya_angry": "真的被惹到、有点生气的时候用",
       "amiya_excited": "期待、惊喜、眼睛发亮的时候用"
     }
+  },
+  "moderation": {
+    "enabled": true
   }
 }

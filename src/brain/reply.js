@@ -5,6 +5,7 @@ import { extractText, isAt, stripAt, mentionsName } from '../onebot/parse.js';
 import { assembleContext, scopeOf } from '../memory/context.js';
 import { buildMessages, buildIntrospectMessages } from '../llm/prompt.js';
 import { chat, parseJsonLoose, estimateTokens } from '../llm/deepseek.js';
+import { checkSensitive, deflectReply } from '../llm/moderation.js';
 import { searchWeb, formatResults, fetchWeather, extractCity, cleanQuery } from '../search/search.js';
 import { checkBudget, addDailyUsed, getDailyUsed } from '../search/budget.js';
 import { applyIntrospection, heuristicDelta, getOrCreateUser } from '../persona/state.js';
@@ -944,6 +945,23 @@ export class Brain {
 
     const rawReply = sanitizeReply(raw, identity?.label || config.botName);
     let { text: reply, sticker } = extractSticker(rawReply);
+
+    // 出口把关：这一段内容安不安全？
+    // 不安全就把整段换成一句岔开的话（不解释、不说「这属于敏感内容」），
+    // 让人感觉是「她不想聊」而不是「被系统挡了」。
+    if (reply) {
+      const verdict = await checkSensitive(reply);
+      if (!verdict.safe) {
+        log.warn(
+          `回复被判敏感，已替换：${reply.slice(0, 50)}…（判定：${String(verdict.reason || '').slice(0, 20)}）`
+        );
+        reply = deflectReply(identity?.key);
+        sticker = null;
+        // 这轮不记记忆、不做内省，免得把敏感内容带进长期状态
+        await this.#deliver(ctx, reply, {});
+        return;
+      }
+    }
 
     // 被要表情包时兜底：答应的必须真给一张，拒绝的绝不能偷塞一张
     if (wantSticker) {

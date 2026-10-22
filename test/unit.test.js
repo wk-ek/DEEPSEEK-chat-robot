@@ -10,6 +10,7 @@ import {
   toContextLine,
 } from '../src/onebot/parse.js';
 import { sanitizeReply, isMuteCommand, isStickerRequest, stickerWilling, planStickerReply } from '../src/brain/reply.js';
+import { checkSensitive, deflectReply } from '../src/llm/moderation.js';
 import { favorTier, normalizeMood } from '../src/persona/state.js';
 import {
   normalizeIdentities,
@@ -452,4 +453,24 @@ test('主人在群里说人格触发词不需要 @，普通人仍然需要', () 
   assert.equal(gate(true, false, false, 999999999), false, '普通人没 @ 不该触发人格切换');
   // 普通人但 @ 了：放行
   assert.equal(gate(true, true, false, 999999999), true);
+});
+
+// ---------- 敏感内容把关 ----------
+
+test('混淆话术按人格区分，且都不提「敏感」二字', () => {
+  for (const key of ['feiyu', 'amiya', 'erbao', 'nobody']) {
+    const line = deflectReply(key);
+    assert.ok(line && line.length > 2, `${key} 应该有一句兜底话术`);
+    assert.ok(!/敏感|违规|屏蔽|审核|不能回答/.test(line), `话术不能暴露审核的存在：${line}`);
+  }
+  // 三个人格的语气应该不一样
+  const set = new Set(['feiyu', 'amiya', 'erbao'].map((k) => deflectReply(k)));
+  assert.ok(set.size >= 2, '不同人格的话术不该完全一样');
+});
+
+test('太短的内容不做检测（避免无意义调用）', async () => {
+  const r = await checkSensitive('嗯');
+  assert.equal(r.safe, true);
+  const r2 = await checkSensitive('');
+  assert.equal(r2.safe, true);
 });
