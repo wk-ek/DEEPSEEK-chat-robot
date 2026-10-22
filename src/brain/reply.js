@@ -8,7 +8,7 @@ import { chat, parseJsonLoose, estimateTokens } from '../llm/deepseek.js';
 import { checkSensitive, deflectReply } from '../llm/moderation.js';
 import { searchWeb, formatResults, fetchWeather, extractCity, cleanQuery } from '../search/search.js';
 import { checkBudget, addDailyUsed, getDailyUsed } from '../search/budget.js';
-import { applyIntrospection, heuristicDelta, getOrCreateUser, resentmentLevel, RESENTMENT } from '../persona/state.js';
+import { applyIntrospection, heuristicDelta, getOrCreateUser, resentmentLevel, RESENTMENT, detectApology, applyApology } from '../persona/state.js';
 import {
   normalizeIdentities,
   defaultIdentity,
@@ -892,6 +892,20 @@ export class Brain {
 
     // 先取一次这个人的状态：怨气、心情、好感都靠它决定这一轮的态度
     const preState = getOrCreateUser({ userId: ctx.userId, nick: ctx.senderName });
+
+    // 对方在认错的话，先把怨气消一点 —— 但效果是打折的，
+    // 免得「欺负 → 道歉 → 再欺负」变成无限循环。
+    const apologyScore = detectApology(userText);
+    if (apologyScore > 0 && preState.resentment > 0) {
+      const r = applyApology(ctx.userId, apologyScore);
+      if (r) {
+        log.info(
+          `认错缓解怨气：${r.before.toFixed(0)} → ${r.resentment.toFixed(0)}（-${r.relief.toFixed(1)}，` +
+            `真诚度 ${apologyScore.toFixed(2)}，本串第 ${r.times} 次）`
+        );
+        preState.resentment = r.resentment;
+      }
+    }
 
     // 怨气到顶了：不调模型，直接回一句「不想理」。
     // 放在最前面，省一次 API 调用，也确保她不会被自己的话术绕回去。

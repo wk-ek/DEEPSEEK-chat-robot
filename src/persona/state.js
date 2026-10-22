@@ -118,6 +118,70 @@ export function resentmentLevel(resentment) {
   return { level: 'normal', hint: '' };
 }
 
+/**
+ * 对方在认错时的怨气缓解。
+ *
+ * 三重控制，防止「欺负 → 道歉 → 欺负」无限循环：
+ *   1. 看真诚度：敷衍的（「行了吧」「还不行吗」）只算两成
+ *   2. 递减：短时间内反复道歉，第二次起效果打折（越道歉越不值钱）
+ *   3. 有下限：最多减到 0，但不会变成「倒欠」
+ *
+ * @param {string} userId
+ * @param {number} sincerity 0~1，由 detectApology 给出
+ * @returns {{relief:number, resentment:number, times:number}|null}
+ */
+/**
+ * 认出「对方在认错」，并估一个真诚度（0~1）。
+ *
+ * 分寸：宁可少判 —— 把玩笑当道歉会让前面的气白攒；
+ * 但明显敷衍的（「行了吧」「还不行吗」）要压到很低。
+ */
+export function detectApology(text) {
+  const t = String(text || '').trim();
+  if (!t || t.length > 80) return 0;
+
+  // 敷衍 / 挑衅式的道歉：效果压到两成
+  if (/(行了吧|还不行吗|够了吧|好了吧|可以了吧|我都道歉了)/.test(t)) return 0.2;
+
+  let score = 0;
+  // 明确说「对不起 / 抱歉」
+  if (/对不起|抱歉|不好意思|sorry/i.test(t)) score += 0.45;
+  // 承认自己错了（不只是道歉，而是承认行为）
+  if (/我错了|是我不对|我的错|我不该|不应该|太过分|有点过分|不该那样|不该这么/.test(t)) score += 0.45;
+  // 求原谅 / 让对方消气
+  if (/原谅我|别生气|不要生气|别气了|消消气|别难过/.test(t)) score += 0.15;
+
+  return Math.min(1, score);
+}
+
+export function applyApology(userId, sincerity) {
+  const s = Math.max(0, Math.min(1, Number(sincerity) || 0));
+  if (s <= 0) return null;
+
+  const uid = String(userId);
+  const row = getDb().prepare('SELECT * FROM users WHERE user_id = ?').get(uid);
+  if (!row) return null;
+
+  const now = Date.now();
+  const windowMs = Number(config.emotion?.apologyWindowMs) || 10 * 60 * 1000;
+  const sameBurst = row.last_apology_at && now - Number(row.last_apology_at) < windowMs;
+  const times = sameBurst ? Number(row.apology_count || 0) + 1 : 1;
+
+  // 越道歉越不值钱：第 1 次全额，第 2 次约 6 成，第 3 次约 4 成……
+  const decay = 1 / (1 + (times - 1) * 0.6);
+  const base = Number(config.emotion?.apologyRelief) || 18;
+  const relief = base * s * decay;
+
+  const before = Number(row.resentment || 0);
+  const resentment = Math.max(0, before - relief);
+
+  getDb()
+    .prepare('UPDATE users SET resentment = ?, apology_count = ?, last_apology_at = ? WHERE user_id = ?')
+    .run(resentment, times, now, uid);
+
+  return { relief, resentment, times, before };
+}
+
 export function applyIntrospection(userId, result) {
   if (!result) return null;
   const db = getDb();

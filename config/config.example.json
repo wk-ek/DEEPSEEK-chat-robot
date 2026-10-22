@@ -175,7 +175,9 @@
     "initialFavor": 30,
     "updateEveryTurns": 2,
     "resentmentMark": 60,
-    "resentmentHard": 85
+    "resentmentHard": 85,
+    "apologyRelief": 18,
+    "apologyWindowMs": 600000
   },
   "proactive": {
     "enabled": false,

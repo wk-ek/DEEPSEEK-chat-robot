@@ -11,7 +11,7 @@ import {
 } from '../src/onebot/parse.js';
 import { sanitizeReply, isMuteCommand, isStickerRequest, stickerWilling, planStickerReply } from '../src/brain/reply.js';
 import { checkSensitive, deflectReply } from '../src/llm/moderation.js';
-import { favorTier, normalizeMood } from '../src/persona/state.js';
+import { favorTier, normalizeMood, detectApology } from '../src/persona/state.js';
 import {
   normalizeIdentities,
   findIdentity,
@@ -473,4 +473,30 @@ test('太短的内容不做检测（避免无意义调用）', async () => {
   assert.equal(r.safe, true);
   const r2 = await checkSensitive('');
   assert.equal(r2.safe, true);
+});
+
+// ---------- 认错缓解怨气 ----------
+
+test('认错识别：真诚的给高分，敷衍的给低分', () => {
+  // 真诚
+  assert.ok(detectApology('对不起，我错了，不该那样说你') >= 0.8, '完整道歉应该高分');
+  assert.ok(detectApology('我错了，是我不对') >= 0.4, '承认错误应该给分');
+
+  // 敷衍 / 挑衅
+  assert.ok(detectApology('对不起行了吧') <= 0.3, '敷衍的道歉只给两成');
+  assert.ok(detectApology('我都道歉了还不行吗') <= 0.3, '带着脾气的道歉也该压低');
+
+  // 不是道歉
+  assert.equal(detectApology('今天天气不错'), 0);
+  assert.equal(detectApology(''), 0);
+  assert.equal(detectApology('你说什么呢'), 0);
+});
+
+test('认错的减幅会递减，不能反复刷', () => {
+  // 不依赖数据库，只验证递减公式：1/(1+(n-1)*0.6)
+  const decay = (n) => 1 / (1 + (n - 1) * 0.6);
+  assert.ok(decay(1) === 1, '第一次全额');
+  assert.ok(decay(2) < decay(1), '第二次应该打折');
+  assert.ok(decay(3) < decay(2), '第三次更少');
+  assert.ok(decay(5) < 0.3, '连着道歉五次基本没用了');
 });

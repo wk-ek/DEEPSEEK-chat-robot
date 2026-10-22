@@ -93,6 +93,9 @@ function migrate() {
   addColumn('ALTER TABLE users ADD COLUMN resentment REAL NOT NULL DEFAULT 0');
   // 被标记的时间（第一次越过阈值时写入，用于「记仇」的时间戳）
   addColumn('ALTER TABLE users ADD COLUMN mistreated_at INTEGER');
+  // 认错的次数与最后一次的时间：短时间内反复道歉会越来越不值钱
+  addColumn('ALTER TABLE users ADD COLUMN apology_count INTEGER NOT NULL DEFAULT 0');
+  addColumn('ALTER TABLE users ADD COLUMN last_apology_at INTEGER');
 }
 
 export function closeDb() {
