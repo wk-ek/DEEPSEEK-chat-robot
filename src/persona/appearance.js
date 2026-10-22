@@ -37,6 +37,25 @@ function toBase64Url(file) {
 }
 
 /**
+ * 只改某一个群的群名片，不动头像。
+ *
+ * 用在「群内切换人格」的场景：每个群可以有自己的人格，但头像属于账号级，
+ * 一个群改了别的群也会跟着变 —— 所以干脆只改名片，靠名字区分。
+ */
+export async function applyGroupCardOnly({ api, groupId, selfId, identity, mode }) {
+  const nickname = mode?.nickname || identity?.nickname;
+  if (!nickname || !groupId || !selfId) return { ok: false, reason: 'missing' };
+  try {
+    await api.setGroupCard(groupId, selfId, nickname);
+    log.info(`群 ${groupId} 名片 → ${nickname}`);
+    return { ok: true, nickname };
+  } catch (err) {
+    log.warn(`改群名片失败（群 ${groupId}）：${err.message}`);
+    return { ok: false, reason: err.message };
+  }
+}
+
+/**
  * 把某个主人格的外观应用上去。
  *
  * @param mode 子人格。子人格可以覆盖头像和昵称（换一张脸、名字换成另一个）；

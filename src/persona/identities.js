@@ -311,17 +311,19 @@ export function parseCommandArg(rest) {
 }
 
 /** /persona 的列表回复。要短，QQ 消息不能太长。 */
-export function describePersona(identities, curIdentity, curMode) {
+export function describePersona(identities, curIdentity, curMode, opts = {}) {
   const lines = [];
-  lines.push(`现在：${curIdentity?.label || '?'} · ${curMode?.label || '正常'}`);
+  const where = opts.isGroup ? (opts.scoped ? '本群专用' : '跟随全局') : '全局默认';
+  lines.push(`现在：${curIdentity?.label || '?'} · ${curMode?.label || '正常'}（${where}）`);
 
   const ids = identities.map((i) => (i.enabled ? i.label : `${i.label}（未启用）`));
   lines.push(`主人格：${ids.join('、')}`);
 
   const modes = (curIdentity?.modes || []).filter((m) => m.enabled).map((m) => m.label);
-  if (modes.length) lines.push(`子人格：正常、${modes.join('、')}`);
+  lines.push(modes.length ? `子人格：正常、${modes.join('、')}` : '子人格：（未配置）');
 
-  lines.push('用法：/persona 名字 切换，/persona 默认 回正常');
+  // 群里的切换只影响本群，私聊的切换才是全局 —— 这条容易被忘，直接写出来
+  lines.push('切换：群里说 = 只改本群，私聊说 = 改全局');
   return lines.join('\n');
 }
 

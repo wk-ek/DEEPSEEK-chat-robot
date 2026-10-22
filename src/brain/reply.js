@@ -22,7 +22,7 @@ import {
   describePersona,
   stickerKeysFor,
 } from '../persona/identities.js';
-import { applyIdentityAppearance } from '../persona/appearance.js';
+import { applyIdentityAppearance, applyGroupCardOnly } from '../persona/appearance.js';
 import { saveMessage, addMemory, touchGroup, recentMessages, kvGet, kvSet } from '../memory/store.js';
 import { maybeSummarize } from '../memory/summarize.js';
 
@@ -522,7 +522,14 @@ export class Brain {
    */
   #personaState(scope) {
     const identities = normalizeIdentities();
-    const idKey = String(kvGet('persona:identity', '') || '');
+
+    // 主人格分两级：
+    //   persona:identity:<scope>  这个群/会话单独指定的（优先级高）
+    //   persona:identity          全局默认
+    // 没指定就回落到全局；全局也没有就用默认人格。
+    const scopedKey = String(kvGet(`persona:identity:${scope}`, '') || '');
+    const globalKey = String(kvGet('persona:identity', '') || '');
+    const idKey = scopedKey || globalKey;
     const identity = (idKey ? findIdentity(idKey, identities) : null) || defaultIdentity(identities);
 
     const modeKey = String(
@@ -530,7 +537,7 @@ export class Brain {
     );
     const mode = modeOf(identity, modeKey);
 
-    return { identities, identity, modeKey, mode };
+    return { identities, identity, modeKey, mode, scoped: !!scopedKey, scopedKey, globalKey };
   }
 
   /** 子人格落库（空串 = 回正常），顺便清掉旧键。 */
@@ -609,7 +616,7 @@ export class Brain {
     const { action, token } = parseCommandArg(cmd.rest);
 
     if (action === 'list') {
-      return { ack: describePersona(identities, identity, curMode) };
+      return { ack: describePersona(identities, identity, curMode, { isGroup: ctx.isGroup, scoped: !!kvGet(`persona:identity:${ctx.scope}`, '') }) };
     }
 
     if (action === 'reset') {
@@ -623,12 +630,12 @@ export class Brain {
     // 明确指定了层，就只往那一层找
     if (action === 'identity') {
       const target = findIdentity(token, identities);
-      if (!target) return { ack: `没有叫「${token}」的主人格。\n${describePersona(identities, identity, curMode)}` };
+      if (!target) return { ack: `没有叫「${token}」的主人格。\n${describePersona(identities, identity, curMode, { isGroup: ctx.isGroup, scoped: !!kvGet(`persona:identity:${ctx.scope}`, '') })}` };
       return this.#switchIdentity({ target, identity, ctx });
     }
     if (action === 'mode') {
       const target = findMode(identity, token);
-      if (!target) return { ack: `${identity.label}没有「${token}」这个子人格。\n${describePersona(identities, identity, curMode)}` };
+      if (!target) return { ack: `${identity.label}没有「${token}」这个子人格。\n${describePersona(identities, identity, curMode, { isGroup: ctx.isGroup, scoped: !!kvGet(`persona:identity:${ctx.scope}`, '') })}` };
       return this.#switchMode({ target, curMode, ctx });
     }
 
@@ -640,7 +647,7 @@ export class Brain {
     if (asMode) return this.#switchMode({ target: asMode, curMode, ctx });
 
     return {
-      ack: `没有「${token}」这个人格。\n${describePersona(identities, identity, curMode)}`,
+      ack: `没有「${token}」这个人格。\n${describePersona(identities, identity, curMode, { isGroup: ctx.isGroup, scoped: !!kvGet(`persona:identity:${ctx.scope}`, '') })}`,
     };
   }
 
@@ -688,7 +695,10 @@ export class Brain {
       return { ack: `已经是${target.label}了。` };
     }
 
-    kvSet('persona:identity', target.key);
+    // 群聊里切换 = 只改这个群；私聊切换 = 改全局默认。
+    // 这样一个群可以是阿米娅、另一个群是二宝，互不影响。
+    const scopedOnly = ctx.isGroup;
+    kvSet(scopedOnly ? `persona:identity:${ctx.scope}` : 'persona:identity', target.key);
 
     // 新主人格没有这个子人格的话，回落到正常，免得上一个角色的表现串到这边
     const curModeKey = String(kvGet(`persona:mode:${ctx.scope}`, '') || '');
@@ -696,14 +706,32 @@ export class Brain {
       this.#setMode(ctx.scope, '');
     }
 
-    log.info(`主人格 → ${target.label}：全局，由 ${ctx.senderName} 在 ${ctx.scope} 触发`);
+    log.info(
+      `主人格 → ${target.label}：${scopedOnly ? `仅本群（${ctx.scope}）` : '全局'}，` +
+        `由 ${ctx.senderName} 触发`
+    );
 
-    // 串行执行，连点切换时按顺序落，不会互相盖掉
-    this.appearanceQueue = this.appearanceQueue
-      .then(() =>
-        applyIdentityAppearance({ api: this.api, identity: target, selfId: this.getSelfId() })
-      )
-      .catch((err) => log.warn(`切换外观失败：${err.message}`));
+    if (scopedOnly) {
+      // 只换这个群的名片。头像属于账号级，改了所有群一起变 ——
+      // 既然是「一个群一个样」，就不动头像，靠群名片区分。
+      this.appearanceQueue = this.appearanceQueue
+        .then(() =>
+          applyGroupCardOnly({
+            api: this.api,
+            groupId: ctx.groupId,
+            selfId: this.getSelfId(),
+            identity: target,
+          })
+        )
+        .catch((err) => log.warn(`改群名片失败：${err.message}`));
+    } else {
+      // 全局切换：换头像 + 逐群改名片
+      this.appearanceQueue = this.appearanceQueue
+        .then(() =>
+          applyIdentityAppearance({ api: this.api, identity: target, selfId: this.getSelfId() })
+        )
+        .catch((err) => log.warn(`切换外观失败：${err.message}`));
+    }
 
     return { ack: target.ack.enter };
   }

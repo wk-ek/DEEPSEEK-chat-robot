@@ -239,9 +239,16 @@ test('列表文案带上当前主人格、子人格和已启用的角色', () =>
 
   assert.ok(text.includes('演示角色'), text);
   assert.ok(text.includes('温和'), text);
-  assert.ok(!text.includes('未启用'), `两个主人格都已启用，不该出现「未启用」：${text}`);
-  assert.ok(text.includes('/persona'), text);
+  assert.ok(!text.includes('未启用'), `主人格都已启用，不该出现「未启用」：${text}`);
+  // 要能看出切换范围（群里改本群 / 私聊改全局）
+  assert.ok(text.includes('切换'), text);
   assert.ok(text.length < 260, `列表太长了（${text.length} 字），QQ 消息会不方便看`);
+
+  // 群聊里要标出「跟随全局」还是「本群专用」
+  const inGroup = describePersona(ids, demo, null, { isGroup: true, scoped: false });
+  assert.ok(inGroup.includes('跟随全局'), inGroup);
+  const scopedInGroup = describePersona(ids, demo, null, { isGroup: true, scoped: true });
+  assert.ok(scopedInGroup.includes('本群专用'), scopedInGroup);
 });
 
 test('表情包按人格挑：子人格 > 主人格 > 默认', () => {
