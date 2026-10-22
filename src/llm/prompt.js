@@ -41,7 +41,7 @@ export function personaText(file = config.personaFile) {
  *   mode.file            —— 她此刻怎么说话（表现），可选
  * 状态与记忆是「此刻的补充」，说话规则放最后（模型对末尾更敏感）。
  */
-export function buildSystemPrompt({ state, memories, scope, identity, mode, stickerDirective }) {
+export function buildSystemPrompt({ state, memories, scope, identity, mode, stickerDirective, angerHint }) {
   const name = identity?.label || config.botName;
   const tier = favorTier(state?.favor ?? config.emotion.initialFavor);
   const mood = MOOD_LABELS[state?.mood] || state?.mood || '平静';
@@ -151,6 +151,11 @@ export function buildSystemPrompt({ state, memories, scope, identity, mode, stic
     }
   }
 
+  // 被欺负攒下的怨气：这一轮该带点气
+  if (angerHint) {
+    parts.push(`【你对这个人的情绪】\n${angerHint}`);
+  }
+
   return parts.join('\n\n');
 }
 
@@ -177,7 +182,11 @@ export function buildIntrospectMessages({ state, exchange, personaName }) {
         `- favorDelta: 整数，-3 到 3。对方让你更亲近给正数，让你不舒服给负数，普通闲聊给 0。\n` +
         `- mood: 从 ["平静","开心","低落","困倦","好奇","有点烦","害羞","想念"] 中选一个。\n` +
         `- moodIntensity: 0 到 1 的小数。\n` +
-        `- note: 不超过 40 字，记下这轮对话里值得记住的新事实；没有就给空字符串。`,
+        `- note: 不超过 40 字，记下这轮对话里值得记住的新事实；没有就给空字符串。` +
+        `\n- mistreat: 布尔值。对方是不是在**故意拿你寻开心**——反复叫你别扭的事、让你难堪、\n` +
+        `  明知你不喜欢还一直做、纯粹为了看她反应而捉弄她。\n` +
+        `  注意：正常的玩笑、逗她、损她一两句**不算**；吵架也**不算**。\n` +
+        `  只有「持续地、明知道她不乐意还要做」才算 true。`,
     },
     {
       role: 'user',

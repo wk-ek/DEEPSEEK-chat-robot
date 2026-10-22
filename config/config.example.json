@@ -173,7 +173,9 @@
   "emotion": {
     "enabled": true,
     "initialFavor": 30,
-    "updateEveryTurns": 2
+    "updateEveryTurns": 2,
+    "resentmentMark": 60,
+    "resentmentHard": 85
   },
   "proactive": {
     "enabled": false,

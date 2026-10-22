@@ -8,7 +8,7 @@ import { chat, parseJsonLoose, estimateTokens } from '../llm/deepseek.js';
 import { checkSensitive, deflectReply } from '../llm/moderation.js';
 import { searchWeb, formatResults, fetchWeather, extractCity, cleanQuery } from '../search/search.js';
 import { checkBudget, addDailyUsed, getDailyUsed } from '../search/budget.js';
-import { applyIntrospection, heuristicDelta, getOrCreateUser } from '../persona/state.js';
+import { applyIntrospection, heuristicDelta, getOrCreateUser, resentmentLevel, RESENTMENT } from '../persona/state.js';
 import {
   normalizeIdentities,
   defaultIdentity,
@@ -890,8 +890,22 @@ export class Brain {
     // 当前会话用哪套人设：主人格定「谁」，子人格定「什么样子」
     const { identity, mode } = this.#personaState(ctx.scope);
 
-    // 有人在要表情包：她得给个明确反应 —— 要么给一张，要么明说不给
+    // 先取一次这个人的状态：怨气、心情、好感都靠它决定这一轮的态度
     const preState = getOrCreateUser({ userId: ctx.userId, nick: ctx.senderName });
+
+    // 怨气到顶了：不调模型，直接回一句「不想理」。
+    // 放在最前面，省一次 API 调用，也确保她不会被自己的话术绕回去。
+    const anger = resentmentLevel(preState.resentment);
+    if (anger.level === 'refuse') {
+      log.info(`怨气值 ${preState.resentment.toFixed(0)}，拒绝回复 ${ctx.senderName}`);
+      await this.#deliver(ctx, '(不想理你)', {});
+      return;
+    }
+    // 怨气偏高但还没到底：这一轮的语气要带气
+    const angerHint = anger.level === 'annoyed' ? anger.hint : '';
+    if (angerHint) {
+      log.debug(`怨气值 ${preState.resentment.toFixed(0)}，本轮语气带气`);
+    }
     const stickerPlan = planStickerReply(userText, preState);
     const wantSticker = stickerPlan.want;
     const stickerWillingNow = stickerPlan.willing;
@@ -915,6 +929,7 @@ export class Brain {
       skipTail: items.length,
       contentOverride: ctx.isGroup ? speech : userText,
       stickerDirective,
+      angerHint,
     });
 
     // 需要实时信息时联网查一下；超预算或查不到就用「饿」话术兜底

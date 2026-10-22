@@ -72,8 +72,27 @@ export function getDb() {
   db.exec('PRAGMA synchronous = FULL;');
   db.exec('PRAGMA busy_timeout = 5000;');
   db.exec(SCHEMA);
+  migrate();
   log.info(`数据库就绪：${PATHS.db}`);
   return db;
+}
+
+/**
+ * 轻量迁移：只做「加列」这种安全操作。
+ * ALTER TABLE ADD COLUMN 在列已存在时会报错，所以用 try 包着。
+ */
+function migrate() {
+  const addColumn = (sql) => {
+    try {
+      db.exec(sql);
+    } catch {
+      /* 已经有了，忽略 */
+    }
+  };
+  // 怨气：被别人反复玩弄、刁难时累积，到阈值就不再好好说话
+  addColumn('ALTER TABLE users ADD COLUMN resentment REAL NOT NULL DEFAULT 0');
+  // 被标记的时间（第一次越过阈值时写入，用于「记仇」的时间戳）
+  addColumn('ALTER TABLE users ADD COLUMN mistreated_at INTEGER');
 }
 
 export function closeDb() {
