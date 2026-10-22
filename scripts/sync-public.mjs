@@ -83,8 +83,14 @@ function buildExampleConfig() {
 
   const c = JSON.parse(fs.readFileSync(src, 'utf8'));
 
-  // 脱敏：主人 QQ、子人格、私有文件路径
+  // 脱敏：主人 QQ、多余的主人格、子人格、私有文件路径
   if (c.guard) c.guard.ownerUserIds = [];
+
+  // 只保留两个基础人格作为示例，其余主人格一律不导出
+  const KEEP_IDENTITIES = ['feiyu', 'amiya'];
+  for (const key of Object.keys(c.persona?.identities || {})) {
+    if (!KEEP_IDENTITIES.includes(key)) delete c.persona.identities[key];
+  }
   for (const id of Object.values(c.persona?.identities || {})) {
     id.modes = {};
   }
