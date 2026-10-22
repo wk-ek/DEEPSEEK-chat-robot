@@ -10,7 +10,7 @@ import {
   toContextLine,
 } from '../src/onebot/parse.js';
 import { sanitizeReply, isMuteCommand, isStickerRequest, stickerWilling, planStickerReply } from '../src/brain/reply.js';
-import { checkSensitive, deflectReply } from '../src/llm/moderation.js';
+import { checkSensitive, deflectReply, hitsSensitiveName } from '../src/llm/moderation.js';
 import { favorTier, normalizeMood, detectApology } from '../src/persona/state.js';
 import {
   normalizeIdentities,
@@ -499,4 +499,15 @@ test('认错的减幅会递减，不能反复刷', () => {
   assert.ok(decay(2) < decay(1), '第二次应该打折');
   assert.ok(decay(3) < decay(2), '第三次更少');
   assert.ok(decay(5) < 0.3, '连着道歉五次基本没用了');
+});
+
+test('敏感名单：政治人名和绰号能被匹配到', () => {
+  // 名单读不到时应该返回空数组，不抛错
+  const hits = hitsSensitiveName('今天天气不错');
+  assert.ok(Array.isArray(hits), '应该返回数组');
+  assert.equal(hits.length, 0, '正常内容不该命中');
+
+  // 空字符串 / null
+  assert.deepEqual(hitsSensitiveName(''), []);
+  assert.deepEqual(hitsSensitiveName(null), []);
 });

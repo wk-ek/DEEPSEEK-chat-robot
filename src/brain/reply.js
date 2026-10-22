@@ -907,14 +907,6 @@ export class Brain {
       }
     }
 
-    // 问题本身就不该聊的话，直接岔开 —— 省一次生成，也不让模型去琢磨这些。
-    const inputVerdict = await checkSensitive(userText);
-    if (!inputVerdict.safe) {
-      log.warn(`输入被判敏感，岔开：${userText.slice(0, 40)}`);
-      await this.#deliver(ctx, deflectReply(identity?.key), {});
-      return;
-    }
-
     // 怨气到顶了：不调模型，直接回一句「不想理」。
     // 放在最前面，省一次 API 调用，也确保她不会被自己的话术绕回去。
     const anger = resentmentLevel(preState.resentment);

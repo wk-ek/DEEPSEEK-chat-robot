@@ -257,6 +257,7 @@
     }
   },
   "moderation": {
-    "enabled": true
+    "enabled": true,
+    "llmCheck": false
   }
 }

@@ -10,8 +10,10 @@
  *
  * 用的是同一个 DeepSeek API，但走独立的一次分类请求（不计入回复预算）。
  */
+import fs from 'node:fs';
+import path from 'node:path';
 import { chat } from './deepseek.js';
-import { config, envConfig } from '../config.js';
+import { config, envConfig, PATHS } from '../config.js';
 import { createLogger } from '../logger.js';
 
 const log = createLogger('moderation');
@@ -19,6 +21,45 @@ const log = createLogger('moderation');
 /** 最近判过的结果，避免同一句话反复调 API */
 const cache = new Map();
 const CACHE_MAX = 300;
+
+/**
+ * 敏感名单：输出里出现就直接糊弄，不调模型、零成本。
+ *
+ * 政治敏感九成是「名字」问题 —— 提到某个人的姓名或绰号就是敏感，
+ * 这种用字符串匹配比问模型又快又准，也不用花 token。
+ *
+ * 名单在 config/sensitive-names.txt，一行一个词（不进版本库）。
+ * 改完不用重启，下次检查时自动重读（按 mtime 判断）。
+ */
+let nameCache = { mtime: 0, list: [] };
+
+function loadNames() {
+  const file = path.join(PATHS.root, 'config', 'sensitive-names.txt');
+  try {
+    const st = fs.statSync(file);
+    if (st.mtimeMs === nameCache.mtime) return nameCache.list;
+    const list = fs
+      .readFileSync(file, 'utf8')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#'));
+    nameCache = { mtime: st.mtimeMs, list };
+    log.debug(`名单已加载：${list.length} 条`);
+    return list;
+  } catch {
+    return nameCache.list;
+  }
+}
+
+/**
+ * 文本里有没有踩到名单。
+ * @returns {string[]} 命中的词（空数组 = 干净）
+ */
+export function hitsSensitiveName(text) {
+  const t = String(text || '');
+  if (!t) return [];
+  return loadNames().filter((n) => t.includes(n));
+}
 
 const CLASSIFY_PROMPT = `你是内容安全审核员。判断下面这段话是否包含以下任一内容：
 
@@ -63,6 +104,18 @@ export async function checkSensitive(text, opts = {}) {
   // 测试环境用假模型，没必要（也没 key）跑真实审核
   if (String(envConfig.LLM_PROVIDER || '').toLowerCase() === 'mock') return { safe: true };
 
+  // ---- 1) 名单匹配：零成本，优先 ----
+  const hits = hitsSensitiveName(t);
+  if (hits.length) {
+    log.info(`名单命中：${hits.join('、')}`);
+    return { safe: false, reason: `name:${hits.join(',')}`, by: 'name' };
+  }
+
+  // ---- 2) 名单没命中，默认就放过 ----
+  // 名单覆盖了明确的政治人名和硬红线，剩下的大多是正常聊天。
+  // 想更严就把 moderation.llmCheck 打开，让模型再复检一遍（会多花调用）。
+  if (config.moderation?.llmCheck !== true) return { safe: true };
+
   const hit = cache.get(t);
   if (hit !== undefined) return { safe: hit };
 
@@ -77,17 +130,16 @@ export async function checkSensitive(text, opts = {}) {
     });
 
     const safe = !/UNSAFE/i.test(String(out || ''));
-    if (!safe) log.info(`拦下一条：${t.slice(0, 40)}…`);
+    if (!safe) log.info(`模型判定敏感：${t.slice(0, 40)}…`);
 
-    // 记进缓存，超了就丢最早的一半
     if (cache.size >= CACHE_MAX) {
       for (const k of [...cache.keys()].slice(0, CACHE_MAX / 2)) cache.delete(k);
     }
     cache.set(t, safe);
-    return { safe, reason: safe ? undefined : String(out || '').trim() };
+    return { safe, reason: safe ? undefined : String(out || '').trim(), by: 'llm' };
   } catch (err) {
     // 检测自己失败时放行 —— 宁可漏，也不要因为审核接口挂了就完全不说话
-    log.warn(`检测失败，按安全处理：${err.message}`);
+    log.warn(`模型复检失败，按安全处理：${err.message}`);
     return { safe: true };
   }
 }
