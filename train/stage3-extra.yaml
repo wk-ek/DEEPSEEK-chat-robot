@@ -1,0 +1,66 @@
+### Stage 3 —— 同人层（可选）：在同人素材上继续微调
+###
+### ⚠️ 这一层是「锦上添花」，不是必需。训歪了直接丢掉，官方版还在。
+###
+### 为什么单独一层：同人作品的语气是「作者理解的阿米娅」，不是阿米娅。
+### 跟官方数据混在一起训会稀释人格纯度。做成独立的第三阶段，
+### 从 Stage 2（纯官方）接着训 —— 两个模型互不干扰：
+###
+###   output/amiya-official   纯官方（推荐主用）
+###   output/amiya-extra      官方 + 同人（语气更丰富，但可能偏离）
+###
+### 只在你跑了 prepare-extra.mjs 并构建出 extra.jsonl 时才需要执行。
+
+model_name_or_path: Qwen/Qwen3-4B-Instruct-2507
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_target: all
+
+### 量化
+quantization_bit: 4
+quantization_method: bitsandbytes
+
+### ★ 从 Stage 2（纯官方）接着训
+adapter_name_or_path: /workspace/output/stage2-persona
+
+### LoRA：最小 rank —— 这一层只是「加一点味道」
+### rank 大反而会把官方语气冲掉
+lora_rank: 8
+lora_alpha: 16
+lora_dropout: 0.05
+
+### 数据（只有几百条，所以 epoch 少）
+dataset_dir: /workspace/data
+dataset: amiya_extra
+eval_dataset: amiya_extra_val
+template: qwen3
+cutoff_len: 1024
+preprocessing_num_workers: 4
+overwrite_cache: true
+
+### 训练超参：小数据 + 低学习率，防止过拟合到同人的具体句子
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 4
+learning_rate: 3.0e-5          # 比 Stage 2 还低一半
+num_train_epochs: 2.0          # 数据少，2 轮够了
+lr_scheduler_type: cosine
+warmup_ratio: 0.05
+weight_decay: 0.01
+max_grad_norm: 1.0
+bf16: true
+gradient_checkpointing: true
+
+### 日志
+logging_steps: 5
+save_steps: 100
+save_total_limit: 2
+plot_loss: true
+output_dir: /workspace/output/stage3-extra
+
+per_device_eval_batch_size: 2
+eval_strategy: steps
+eval_steps: 100
+
+report_to: none
+seed: 42

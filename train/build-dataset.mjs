@@ -145,6 +145,22 @@ if (!onlyStage || onlyStage === 2) {
   }
 }
 
+// ---- Stage 3：同人层（可选）----
+if (!onlyStage || onlyStage === 3) {
+  const extra = readJsonl(path.join(DIR, 'extra_pairs.jsonl'));
+  if (extra.length) {
+    console.log(`Stage 3 读入：同人/深度素材 ${extra.length} 条`);
+    const cleaned = shuffle(clean(extra, 2));
+    if (cleaned.length >= 20) {
+      const r = write(`extra`, cleaned, system);
+      console.log(`  → extra.jsonl ${r.train} 条 / val ${r.val} 条  ${(r.size / 1024).toFixed(0)} KB`);
+      report.push(['Stage 3 同人层', r.train]);
+    } else {
+      console.log(`  ⚠️ 数据太少（${cleaned.length} 条），跳过`);
+    }
+  }
+}
+
 if (!report.length) {
   console.error('\n没有任何数据被构建。检查 train/data/ 下的文件是否存在。');
   process.exit(1);
