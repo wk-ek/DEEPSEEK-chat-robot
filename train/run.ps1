@@ -455,9 +455,16 @@ try {
 # 统一的调用函数
 function Invoke-Lf {
     param([string[]]$LfArgs)
-    # 2>&1 合并 stderr，否则 Python 的 traceback 在 Transcript 里看不到
+
     if ($LfExe) {
-        & $LfExe @LfArgs 2>&1 | ForEach-Object { Write-Host $_ }
+        # 用 cmd /c 包装：pip 生成的 .exe wrapper 直接调用时可能不输出到控制台，
+        # 走 cmd 能同时拿到 stdout 和 stderr
+        $quoted = ($LfArgs | ForEach-Object {
+            if ($_ -match '\s') { '"' + $_ + '"' } else { $_ }
+        }) -join ' '
+        $cmdLine = '"' + $LfExe + '" ' + $quoted
+        Write-Host "    命令: $cmdLine" -ForegroundColor DarkGray
+        cmd /c $cmdLine 2>&1 | ForEach-Object { Write-Host $_ }
     } else {
         & $python -m llamafactory.cli @LfArgs 2>&1 | ForEach-Object { Write-Host $_ }
     }
@@ -472,7 +479,13 @@ if ($needWisdom) {
     $s = Get-Date
     $yaml = Get-YamlPath "stage1-wisdom"
     Invoke-Lf (@("train", $yaml, "model_name_or_path=$BaseModel", "dataset_dir=$DataDir", "output_dir=$(Join-Path $OutDir 'stage1-wisdom')") + $script:PrecisionArgs)
-    if ($LASTEXITCODE -ne 0) { Die "Stage 1 失败" }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host ""
+        Write-Host "  Stage 1 退出码: $LASTEXITCODE" -ForegroundColor Red
+        Write-Host "  如果上面没有任何输出，手动跑这条命令看真实报错：" -ForegroundColor Yellow
+        Write-Host "    `"$LfExe`" train `"$yaml`" dataset_dir=`"$DataDir`" output_dir=`"$(Join-Path $OutDir 'stage1-wisdom')`" bf16=false fp16=true" -ForegroundColor Yellow
+        Die "Stage 1 失败"
+    }
     Ok "Stage 1 完成（$([math]::Round(((Get-Date) - $s).TotalMinutes)) 分钟）"
     $Stage2Base = Join-Path $OutDir "stage1-wisdom"
 } else {
