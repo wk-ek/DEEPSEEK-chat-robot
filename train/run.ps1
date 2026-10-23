@@ -236,7 +236,17 @@ if (-not $lfOk -and $lfCli) { $lfOk = $true }
 
 # ★ 关键：import llamafactory 不需要 transformers（__init__.py 只 import extras.env），
 #   所以只测这个会漏掉依赖。必须逐个检查训练真正需要的模块。
-$requiredMods = @("transformers", "datasets", "accelerate", "peft", "trl", "safetensors", "sentencepiece", "torch")
+# sentencepiece 0.2.2 在 Windows Server 2019 上会崩（0xC0000005 访问冲突），
+# 而且 Qwen3 用 tokenizers 不需要它。如果之前装过就卸掉。
+$spCheck = & $python -c "import sentencepiece" 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Warn "sentencepiece 已装（它在 Server 2019 上会崩，Qwen3 也不需要）"
+    Say "卸载 sentencepiece…"
+    & $python -m pip uninstall -y sentencepiece -q 2>&1 | Out-Null
+    Ok "已卸载"
+}
+
+$requiredMods = @("transformers", "datasets", "accelerate", "peft", "trl", "safetensors", "torch")
 $missingDeps = @()
 foreach ($m in $requiredMods) {
     & $python -c "import $m" 2>&1 | Out-Null
@@ -277,7 +287,7 @@ if (-not $lfOk) {
 
             $offlineDeps = @(
                 "transformers", "datasets", "accelerate", "peft", "trl", "torchdata",
-                "tyro", "einops", "numpy", "pandas", "scipy", "sentencepiece",
+                "tyro", "einops", "numpy", "pandas", "scipy",
                 "tiktoken", "hf-transfer", "safetensors", "fire", "omegaconf",
                 "packaging", "protobuf", "pyyaml", "pydantic", "matplotlib", "setuptools"
             )
@@ -307,7 +317,7 @@ if (-not $lfOk) {
                 "peft>=0.18.0,<=0.18.1",
                 "trl>=0.18.0,<=0.24.0",
                 "torchdata>=0.10.0,<=0.11.0",
-                "tyro", "einops", "numpy", "pandas", "scipy", "sentencepiece",
+                "tyro", "einops", "numpy", "pandas", "scipy",
                 "tiktoken", "hf-transfer", "safetensors", "fire", "omegaconf",
                 "packaging", "protobuf", "pyyaml", "pydantic", "matplotlib", "setuptools"
             )
