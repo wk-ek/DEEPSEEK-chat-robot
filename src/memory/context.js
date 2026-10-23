@@ -2,6 +2,8 @@ import { config } from '../config.js';
 import { recentMessages, recallMemories } from './store.js';
 import { getOrCreateUser } from '../persona/state.js';
 import { buildSystemPrompt } from '../llm/prompt.js';
+import { loadProfile, renderLitePersona } from '../llm/lite-persona.js';
+import { recallLore, defaultLorePath } from './lore.js';
 
 /** 会话键：私聊按人，群聊按群。 */
 export function scopeOf({ type, userId, groupId }) {
@@ -67,6 +69,19 @@ export function assembleContext({
       })
     : [];
 
+  // ---- 精简人格：只给阿米娅这类配了档案的角色用 ----
+  // 用结构化档案 + 按需检索的 lore，替代整段 persona.md / lore.md
+  let lite = null;
+  if (identity?.liteProfile) {
+    const profile = loadProfile(identity.liteProfile);
+    if (profile) {
+      const loreFile = identity.loreFile ? defaultLorePath(identity.loreFile) : null;
+      const hits = loreFile ? recallLore(loreFile, userText, 2, 2) : [];
+      const text = renderLitePersona(profile, hits, state);
+      if (text) lite = { text, loreCount: hits.length };
+    }
+  }
+
   const system = buildSystemPrompt({
     state,
     memories,
@@ -75,6 +90,7 @@ export function assembleContext({
     mode,
     stickerDirective,
     angerHint,
+    lite,
   });
 
   const content = contentOverride || (isGroup ? `${senderName}: ${userText}` : userText);

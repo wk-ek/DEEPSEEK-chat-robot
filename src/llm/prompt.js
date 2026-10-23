@@ -41,23 +41,32 @@ export function personaText(file = config.personaFile) {
  *   mode.file            —— 她此刻怎么说话（表现），可选
  * 状态与记忆是「此刻的补充」，说话规则放最后（模型对末尾更敏感）。
  */
-export function buildSystemPrompt({ state, memories, scope, identity, mode, stickerDirective, angerHint }) {
+export function buildSystemPrompt({ state, memories, scope, identity, mode, stickerDirective, angerHint, lite }) {
   const name = identity?.label || config.botName;
   const tier = favorTier(state?.favor ?? config.emotion.initialFavor);
   const mood = MOOD_LABELS[state?.mood] || state?.mood || '平静';
 
   const parts = [];
 
-  const baseFile = identity?.personaFile || config.personaFile;
-  parts.push(`【你是谁】\n${personaText(baseFile)}`);
+  // 精简模式：用结构化档案 + 检索到的 lore，替代整段 persona.md / lore.md。
+  // 只在配了 liteProfile 的人格上生效，其他人格走原来的全量路径。
+  if (lite?.text) {
+    parts.push(lite.text);
+    if (lite.loreCount > 0) {
+      parts.push('（以上是你的记忆，不是要背的资料。聊到相关话题时自然回忆，不要主动复述、不要像念年表。不知道就说不知道。）');
+    }
+  } else {
+    const baseFile = identity?.personaFile || config.personaFile;
+    parts.push(`【你是谁】\n${personaText(baseFile)}`);
 
-  // 剧情知识库：不是让模型背设定，是让它「回忆」
-  if (identity?.loreFile) {
-    parts.push(
-      `【你亲身经历过的事】\n${personaText(identity.loreFile)}\n\n` +
-        `以上是你的记忆，不是要背诵的资料。别人聊到相关话题时自然地回忆，` +
-        `不要主动复述剧情、不要像在念年表。不知道的部分就说不知道。`
-    );
+    // 剧情知识库：不是让模型背设定，是让它「回忆」
+    if (identity?.loreFile) {
+      parts.push(
+        `【你亲身经历过的事】\n${personaText(identity.loreFile)}\n\n` +
+          `以上是你的记忆，不是要背诵的资料。别人聊到相关话题时自然地回忆，` +
+          `不要主动复述剧情、不要像在念年表。不知道的部分就说不知道。`
+      );
+    }
   }
 
   // 子人格是一次「换装」，不换人：明确告诉模型以这一节为准，压住底子里的冲突描述

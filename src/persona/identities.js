@@ -104,6 +104,8 @@ function normalizeIdentity(key, raw) {
     personaFile: resolveFile(raw.personaFile || config.personaFile),
     // 可选：这个人格「记得的事」（剧情知识库），会拼在人格之后
     loreFile: resolveFile(raw.loreFile || ''),
+    // 精简人格档案（JSON）：配了就只发档案 + 检索到的 lore，不再全量塞 md
+    liteProfile: raw.liteProfile ? resolveFile(raw.liteProfile) : '',
     avatar: avatarExists ? avatarAbs : '',
     avatarConfigured: avatarAbs,
     nickname: String(raw.nickname || config.botName || label),

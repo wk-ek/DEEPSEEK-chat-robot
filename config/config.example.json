@@ -99,7 +99,8 @@
           "amiya_angry",
           "amiya_excited"
         ],
-        "modes": {}
+        "modes": {},
+        "liteProfile": "config/persona.amiya.profile.json"
       }
     }
   },

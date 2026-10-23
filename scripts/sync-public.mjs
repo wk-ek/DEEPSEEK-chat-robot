@@ -41,6 +41,7 @@ const PRIVATE_FILES = [
   'config/persona.tsundere.md',
   'config/persona.aggressive.md',
   'config/persona.erbao.md',
+  'config/persona.amiya.profile.json',
   'config/sensitive-names.txt',
   'HANDOFF.md',
 ];
