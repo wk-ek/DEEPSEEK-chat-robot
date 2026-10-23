@@ -234,6 +234,22 @@ try {
 
 if (-not $lfOk -and $lfCli) { $lfOk = $true }
 
+# ★ 关键：import llamafactory 不需要 transformers（__init__.py 只 import extras.env），
+#   所以只测这个会漏掉依赖。必须逐个检查训练真正需要的模块。
+$requiredMods = @("transformers", "datasets", "accelerate", "peft", "trl", "safetensors", "sentencepiece", "torch")
+$missingDeps = @()
+foreach ($m in $requiredMods) {
+    & $python -c "import $m" 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { $missingDeps += $m }
+}
+if ($missingDeps.Count -gt 0) {
+    Warn "缺少依赖：$($missingDeps -join ', ')"
+    $lfOk = $false
+} else {
+    Ok "训练依赖齐全（$($requiredMods.Count) 个模块都能 import）"
+    $lfOk = $true
+}
+
 if (-not $lfOk) {
     Say "安装 LLaMA-Factory"
 
