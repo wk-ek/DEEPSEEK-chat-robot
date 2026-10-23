@@ -121,11 +121,23 @@ if (dry) {
 }
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
-const fh = fs.openSync(OUT_FILE, 'w');
+
+// 断点续传：读已有的，算出已完成的批次数
 let total = 0;
+let doneBatches = 0;
+if (fs.existsSync(OUT_FILE)) {
+  const existing = fs.readFileSync(OUT_FILE, 'utf8').trim().split('\n').filter(Boolean);
+  for (const line of existing) {
+    try { JSON.parse(line); total++; } catch {}
+  }
+  doneBatches = Math.floor(total / BATCH);
+  if (total > 0) console.log(`  已有 ${total} 条（约 ${doneBatches} 批），继续往后生成`);
+}
+
+const fh = fs.openSync(OUT_FILE, 'a');
 const scenes = pickScenes(batches);
 
-for (let i = 0; i < batches; i++) {
+for (let i = doneBatches; i < batches; i++) {
   const scene = scenes[i];
   try {
     const pairs = await genBatch(profile, scene, BATCH);

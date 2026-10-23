@@ -110,20 +110,36 @@ if (dry) {
 }
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
-const fh = fs.openSync(OUT_FILE, 'w');
-let total = 0;
-let failed = 0;
 
-for (let i = 0; i < todo.length; i++) {
-  const { file, rel } = todo[i];
+// 断点续传：读已有的，跳过处理过的文件
+const done = new Set();
+let total = 0;
+if (fs.existsSync(OUT_FILE)) {
+  for (const line of fs.readFileSync(OUT_FILE, 'utf8').trim().split('\n').filter(Boolean)) {
+    try {
+      const o = JSON.parse(line);
+      if (o.source) done.add(o.source);
+      total++;
+    } catch {}
+  }
+  if (done.size) console.log(`  已处理 ${done.size} 个文件（${total} 条），跳过`);
+}
+
+const fh = fs.openSync(OUT_FILE, 'a');
+let failed = 0;
+const remaining = todo.filter((x) => !done.has(x.rel));
+console.log(`  本次还需处理 ${remaining.length} 个`);
+
+for (let i = 0; i < remaining.length; i++) {
+  const { file, rel } = remaining[i];
   try {
     const pairs = await extractFromFile(file, rel);
     for (const p of pairs) fs.writeSync(fh, JSON.stringify(p) + '\n');
     total += pairs.length;
-    process.stdout.write(`\r  ${i + 1}/${todo.length}  ${rel.slice(0, 24)} → +${pairs.length}，累计 ${total}`);
+    process.stdout.write(`\r  ${i + 1}/${remaining.length}  ${rel.slice(0, 24)} → +${pairs.length}，累计 ${total}`);
   } catch (err) {
     failed++;
-    process.stdout.write(`\r  ${i + 1}/${todo.length}  失败：${err.message.slice(0, 30)}`);
+    process.stdout.write(`\r  ${i + 1}/${remaining.length}  失败：${err.message.slice(0, 30)}`);
   }
   await new Promise((r) => setTimeout(r, 300));
 }

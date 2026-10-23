@@ -1,12 +1,16 @@
 # 阿米娅人格模型 · 训练套件
 
-**打包上传 → 跑一个脚本 → 拿到两个模型（纯官方 / 官方+同人）。**
+**解压 → 跑一个脚本 → 拿到两个模型（纯官方 / 官方+同人）。**
 
 ```bash
-node train/pack.mjs              # 生成 dist/amiya-train-<日期>.zip
-# 上传解压到 /workspace
-cd amiya-train && bash train/run.sh --auto
+# 云端（包里已含剧情素材和训练数据）
+unzip amiya-train-*.zip && cd amiya-train
+bash train/run.sh
 ```
+
+不需要配 API key，不需要生成数据，解压直接开训。
+
+> 想自己重新生成数据再用 `--auto`（要 key，约 5-10 元）。
 
 ---
 

@@ -3,7 +3,8 @@
 #  阿米娅人格模型 · 一键训练（两阶段官方 + 可选同人层）
 #
 #  用法（在云端容器里）：
-#      bash run.sh --auto          全自动：生成数据 → 训两个模型
+#      bash run.sh                 解压即用：用包里自带的数据直接训
+#      bash run.sh --auto          现场生成数据再训（要 API key）
 #      bash run.sh                 用已上传的数据训练
 #      bash run.sh --official-only 只训纯官方版（推荐先用这个）
 #      bash run.sh --dry           只检查环境，不训练
@@ -23,7 +24,14 @@ die()  { echo -e "${RED}✗${NC} $*"; exit 1; }
 hr()   { echo -e "${DIM}────────────────────────────────────────${NC}"; }
 
 WORKSPACE="${WORKSPACE:-/workspace}"
-DATA_DIR="${DATA_DIR:-$WORKSPACE/data}"
+# 数据目录：优先用包里自带的 data/（解压即用），否则用 /workspace/data
+if [[ -z "${DATA_DIR:-}" ]]; then
+  if [[ -d "$SCRIPT_DIR/../data" ]] && [[ -f "$SCRIPT_DIR/../data/persona.jsonl" ]]; then
+    DATA_DIR="$SCRIPT_DIR/../data"
+  else
+    DATA_DIR="$WORKSPACE/data"
+  fi
+fi
 OUT_DIR="${OUT_DIR:-$WORKSPACE/output}"
 STORY_DIR="${STORY_DIR:-$WORKSPACE/story}"
 BASE_MODEL="${BASE_MODEL:-Qwen/Qwen3-4B-Instruct-2507}"

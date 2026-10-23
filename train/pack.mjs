@@ -16,6 +16,8 @@ import { execFileSync } from 'node:child_process';
 
 const args = process.argv.slice(2);
 const withData = args.includes('--with-data');
+const withStory = args.includes('--with-story');
+const STORY_SRC = process.env.ARK_STORY_ROOT || 'F:\\ark_story_data\\collected\\合集版';
 
 const ROOT = process.cwd();
 const DIST = path.join(ROOT, 'dist');
@@ -93,6 +95,22 @@ if (withData) {
     count += n;
   } else {
     console.log('  ⚠️  没有 train/out，--with-data 无数据可带');
+  }
+}
+
+// ---- 可选：带上剧情素材 ----
+if (withStory) {
+  if (!fs.existsSync(STORY_SRC)) {
+    console.log(`  ⚠️  剧情目录不存在：${STORY_SRC}`);
+  } else {
+    console.log('  正在复制剧情素材（约 37 MB）…');
+    const dst = path.join(STAGE, 'story');
+    let n = 0;
+    for (const e of fs.readdirSync(STORY_SRC, { withFileTypes: true })) {
+      if (e.isDirectory()) n += copyRecursive(path.join(STORY_SRC, e.name), path.join(dst, e.name));
+    }
+    console.log(`  ${'story/（剧情素材）'.padEnd(38)} ${n} 个文件`);
+    count += n;
   }
 }
 
