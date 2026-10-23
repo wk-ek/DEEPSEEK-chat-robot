@@ -56,16 +56,40 @@ echo -e "${DIM}  两阶段官方训练 + 可选同人层${NC}\n"
 
 # ---------- 1. 环境 ----------
 say "检查环境"
-command -v python3 >/dev/null || die "没有 python3"
-python3 - <<'PY' || die "没有可用的 CUDA"
+
+command -v python3 >/dev/null || die "没有 python3。Ubuntu: apt install -y python3 python3-pip python3-venv"
+PYVER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+echo -e "  ${DIM}Python ${PYVER}${NC}"
+if python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)'; then :; else die "Python 太旧（${PYVER}），需要 3.10+"; fi
+
+# Ubuntu 23.04+ 有 PEP 668，禁止直接 pip install 到系统环境。
+# 容器里无所谓污染，加 --break-system-packages 最省事；有 venv 就直接用。
+PIP_FLAGS=""
+if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+  echo -e "  ${DIM}在 venv 里，直接装依赖${NC}"
+elif python3 -c 'import sysconfig,os,sys; sys.exit(0 if os.path.exists(os.path.join(sysconfig.get_path("stdlib"),"EXTERNALLY-MANAGED")) else 1)' 2>/dev/null; then
+  echo -e "  ${YELLOW}!${NC} 检测到 PEP 668（Ubuntu 24.04 等），pip 会加 --break-system-packages"
+  PIP_FLAGS="--break-system-packages"
+fi
+
+command -v git >/dev/null || die "缺少 git。Ubuntu: apt install -y git"
+
+if ! python3 -c "import torch" 2>/dev/null; then
+  warn "没装 torch，安装依赖时会一起装（约 2-3 GB）"
+else
+  python3 - <<'PY' || die "CUDA 不可用。检查驱动：nvidia-smi；或重装 cu121 版 torch"
 import torch, sys
 if not torch.cuda.is_available():
-    print("  ✗ CUDA 不可用"); sys.exit(1)
+    print("  ✗ CUDA 不可用 —— 需要 GPU 和对应驱动")
+    print("    nvidia-smi 能跑吗？如果跑不了，先装驱动")
+    sys.exit(1)
 p = torch.cuda.get_device_properties(0)
 print(f"  GPU: {p.name}  {p.total_memory/1024**3:.1f} GB")
+print(f"  CUDA: {torch.version.cuda}")
 if p.total_memory/1024**3 < 15:
     print("  ⚠ 显存偏小，4B QLoRA 建议 16GB+（24GB 最稳）")
 PY
+fi
 ok "环境正常"
 
 # ---------- 2. 数据准备 ----------
@@ -126,7 +150,12 @@ ok "数据检查通过"
 if ! command -v llamafactory-cli >/dev/null 2>&1; then
   hr; say "安装 LLaMA-Factory（首次约 3-5 分钟）"
   [[ -d "$LF_DIR" ]] || git clone --depth 1 https://github.com/hiyouga/LLaMA-Factory.git "$LF_DIR"
-  ( cd "$LF_DIR" && pip install -e ".[torch,metrics,bitsandbytes]" -q ) || die "安装失败"
+  ( cd "$LF_DIR" && pip install ${PIP_FLAGS} -e ".[torch,metrics,bitsandbytes]" -q ) || die "依赖安装失败
+
+  常见原因：
+    - 网络慢：pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+    - 缺编译工具：apt install -y build-essential
+    - CUDA 版本不对：pip install torch --index-url https://download.pytorch.org/whl/cu121"
   ok "安装完成"
 else
   ok "LLaMA-Factory 已安装"
