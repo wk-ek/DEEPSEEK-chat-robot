@@ -50,6 +50,8 @@ const INCLUDE = [
   { from: '诊断依赖.ps1', to: '诊断依赖.ps1' },
   { from: '手动训练.bat', to: '手动训练.bat' },
   { from: '修复安装.bat', to: '修复安装.bat' },
+  { from: '下载模型.bat', to: '下载模型.bat' },
+  { from: '下载模型.ps1', to: '下载模型.ps1' },
   { from: 'package.json', to: 'package.json' },
 ];
 

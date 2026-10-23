@@ -147,6 +147,21 @@ print(str(p.name) + '|' + format(vram, '.1f') + '|' + str(torch.version.cuda))
     if ($vram -lt 15) { Warn "显存 $vram GB 偏小，4B 训练建议 16GB+" }
 }
 
+# ---- 检测本地模型（下载模型.bat 下好的，优先用本地）----
+$localModelDir = Join-Path $RootDir "models\Qwen3-4B-Instruct-2507"
+if (Test-Path (Join-Path $localModelDir "config.json")) {
+    $BaseModel = $localModelDir
+    $modelGB = [math]::Round(((Get-ChildItem $localModelDir -File | Measure-Object -Sum Length).Sum / 1GB), 2)
+    Ok "使用本地模型：models\Qwen3-4B-Instruct-2507（$modelGB GB）"
+    Info "不需要联网下载模型"
+} else {
+    Info "本地没有模型，训练时会从 HuggingFace 下载（7.5 GB）"
+    Info "想提前下载：双击 下载模型.bat（从 ModelScope 下，国内更快）"
+    if (-not $env:HF_ENDPOINT) {
+        Info "如果下载慢，可以设镜像：`$env:HF_ENDPOINT = `"https://hf-mirror.com`""
+    }
+}
+
 # ---- 判断用 bf16 还是 fp16（V100/T4 这类卡不支持 bf16）----
 $script:PrecisionArgs = @("bf16=true", "fp16=false")
 $script:PrecisionName = "bf16"
