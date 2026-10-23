@@ -296,7 +296,11 @@ if (-not $lfOk) {
             # 但要关掉下载进度条（本地文件，进度条没意义且刷屏）
             $sw2 = [System.Diagnostics.Stopwatch]::StartNew()
             # 必须用 2>&1 捕获：PowerShell 5.1 的 Transcript 抓不到原生程序的 stderr
-            $pipArgs = @("-m", "pip", "install", "--no-index", "--find-links", $wheelsDir, "--progress-bar", "off") + $offlineDeps
+            # --no-deps：绕过 pip 的依赖检查。
+# 原因：transformers/peft 的 METADATA 里声明了 sentencepiece，
+# 但它在这台机器上 import 就崩，而源码其实不用它（try/except 可选）。
+# 我们自己的 offlineDeps 已经覆盖了全部真实依赖。
+            $pipArgs = @("-m", "pip", "install", "--no-index", "--no-deps", "--find-links", $wheelsDir, "--progress-bar", "off") + $offlineDeps
             $pipLines = & $python @pipArgs 2>&1
             $rc = $LASTEXITCODE
             $sw2.Stop()

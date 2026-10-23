@@ -25,10 +25,7 @@ if not exist "%LF%" (
 echo   llamafactory-cli: %LF%
 echo.
 echo   命令:
-echo     "%LF%" train train\stage1-wisdom.yaml ^
-echo       dataset_dir=data ^
-echo       output_dir=output\stage1-wisdom ^
-echo       bf16=false fp16=true
+echo     "%LF%" train train\stage1-wisdom.yaml dataset_dir=data output_dir=output\stage1-wisdom bf16=false fp16=true
 echo.
 echo   ============================================
 echo.
