@@ -25,6 +25,7 @@ config/sensitive-names.txt
 HANDOFF.md
 
 # ---- 训练数据（含剧情原文，不公开）----
+dist/
 train/data/
 train/out/
 

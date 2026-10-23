@@ -39,7 +39,7 @@ if not errorlevel 1 (
 
 echo.
 echo  [2/3] 启动 NapCat...
-start "" /d "%NAPCAT_DIR%" NapCatWinBootMain.exe
+start "NapCat" /d "%NAPCAT_DIR%" cmd /k "chcp 65001 >nul && NapCatWinBootMain.exe"
 
 echo        等待 NapCat 就绪（最多 120 秒）...
 echo        提示：NapCat 会打开一个 QR 扫码窗口，第一次用要扫码登录。
