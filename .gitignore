@@ -24,6 +24,10 @@ config/sensitive-names.txt
 # ---- 开发交接文档（含大量内部实现与人格细节，不进版本库）----
 HANDOFF.md
 
+# ---- 训练数据（含剧情原文，不公开）----
+train/data/
+train/out/
+
 # ---- 运行时生成 ----
 config/config.json
 data/

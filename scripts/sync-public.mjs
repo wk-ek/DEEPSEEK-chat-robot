@@ -46,7 +46,7 @@ const PRIVATE_FILES = [
   'HANDOFF.md',
 ];
 
-const PRIVATE_DIRS = ['node_modules', 'data', 'logs', 'NapCat', '.git', '.vscode', '.idea'];
+const PRIVATE_DIRS = ['node_modules', 'data', 'logs', 'NapCat', '.git', '.vscode', '.idea', 'out'];
 
 /** 按扩展名排除的杂物 */
 const JUNK = [/\.log$/, /\.out$/, /\.err$/, /\.db$/, /\.db-shm$/, /\.db-wal$/, /\.tmp$/, /~$/, /^_prts_.*\.txt$/, /^_lore_.*\.txt$/, /^_src_.*\.txt$/];
