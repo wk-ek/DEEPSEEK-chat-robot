@@ -64,6 +64,66 @@ dir
 
 ---
 
+## 二之二、装环境（Python + PyTorch）
+
+如果预检时提示 Python 太旧或 PyTorch 是 CPU 版，用这个脚本自动处理。
+
+### 双击运行
+
+```
+安装环境.bat
+```
+
+### 它会做两件事
+
+| 步骤 | 判断逻辑 |
+| --- | --- |
+| **Python** | 版本 ≥ 3.10 → 跳过；否则下载 3.12 官方安装包静默安装 |
+| **PyTorch** | 已装 CUDA 版 → 跳过；CPU 版或无 → 装 CUDA 版 |
+
+**每一步都先检测、先问你要不要做**，不会擅自改系统。
+
+### 参数
+
+```powershell
+.\安装环境.ps1                  # 交互式，两道确认
+.\安装环境.ps1 -PythonOnly      # 只处理 Python
+.\安装环境.ps1 -TorchOnly       # 只处理 PyTorch
+.\安装环境.ps1 -Force           # 已装好也强制重装
+.\安装环境.ps1 -CudaVersion cu118   # 指定 CUDA 版本
+.\安装环境.ps1 -Log 安装日志.txt
+```
+
+### CUDA 版本怎么选
+
+脚本会根据 `nvidia-smi` 显示的 CUDA 版本自动选：
+
+| 你的 CUDA | 装的 PyTorch |
+| --- | --- |
+| 12.6+ | cu126 |
+| 12.4+ | cu124 |
+| 12.1+ | **cu121**（最通用） |
+| 11.8+ | cu118 |
+| 更旧 | 会警告，建议换环境 |
+
+### 装 Python 的两种方式
+
+1. **winget**（Win10 1809+ / Win11 自带）
+   ```powershell
+   winget install Python.Python.3.12
+   ```
+2. **官方安装包**（Server 2019 一般没有 winget）
+   自动下载 `python-3.12.8-amd64.exe`，静默安装到全用户
+
+> ⚠️ 装完 Python 后**必须重开一个 PowerShell 窗口**，PATH 才会生效。
+
+### 注意事项
+
+- **建议以管理员身份运行**（安装 Python 需要写系统目录）
+- PyTorch CUDA 版约 **2.5 GB**，装 5–20 分钟
+- 脚本会先配清华源加速小依赖，torch 本体还是从官方源下
+
+---
 ## 三、预检（30 秒，必做）
 
 ### 先解除执行策略限制（只需一次）
