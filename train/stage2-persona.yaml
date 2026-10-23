@@ -1,0 +1,70 @@
+### Stage 2 —— 说话层：让她「像阿米娅那样说话」
+###
+### 目标：在已经认识世界的基础上，学**她的语气**。
+###   短句、43% 的话带省略号、被夸先愣一下、难过时不安慰只陪着……
+###
+### 关键：从 Stage 1 的 adapter 继续训练，不是从零开始。
+###   adapter_name_or_path 指向 Stage 1 的输出目录 —— 这样「知识」不会丢。
+###
+### 数据：
+###   amiya_persona.jsonl   约 4900 条
+###     · 剧情对话 3426 条（从 553 个剧情文件里提取的真实「别人说→她答」）
+###     · 日常生成 约 1500 条（剧情里没有「今天好累」这种）
+###
+### 训练时长：约 20-30 分钟（4090 24G）
+### 花费：约 1-2 元算力
+
+model_name_or_path: Qwen/Qwen3-4B-Instruct-2507
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_target: all
+
+### 量化
+quantization_bit: 4
+quantization_method: bitsandbytes
+
+### ★ 从 Stage 1 接着训
+adapter_name_or_path: /workspace/output/stage1-wisdom
+
+### LoRA：说话层用小 rank —— 人格风格是「浅层调整」，
+### rank 太大容易过拟合到具体句子，反而不会说别的
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+
+### 数据
+dataset_dir: /workspace/data
+dataset: amiya_persona
+eval_dataset: amiya_persona_val
+template: qwen3
+cutoff_len: 1024              # 对话都很短（回答均长 20 字）
+preprocessing_num_workers: 8
+max_samples: 100000
+overwrite_cache: true
+
+### 训练超参
+per_device_train_batch_size: 4
+gradient_accumulation_steps: 4
+learning_rate: 6.0e-5         # 比 Stage 1 更低 —— 微调语气，别把知识冲掉
+num_train_epochs: 3.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+weight_decay: 0.01
+max_grad_norm: 1.0
+bf16: true
+gradient_checkpointing: true
+
+### 日志
+logging_steps: 10
+save_steps: 200
+save_total_limit: 3
+plot_loss: true
+output_dir: /workspace/output/stage2-persona
+
+per_device_eval_batch_size: 4
+eval_strategy: steps
+eval_steps: 200
+
+report_to: none
+seed: 42
