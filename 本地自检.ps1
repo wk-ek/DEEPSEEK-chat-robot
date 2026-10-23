@@ -131,6 +131,41 @@ if (-not $python) {
 # ============================================================
 # 3. PyTorch / CUDA
 # ============================================================
+# ---- 先查显卡硬件（不管 torch 装没装）----
+Section "显卡硬件"
+
+$smiOk = $false
+$smiOut = ""
+try {
+    $smiOut = (& nvidia-smi 2>&1 | Out-String)
+    $smiOk = ($LASTEXITCODE -eq 0 -and $smiOut -notmatch 'not recognized|不是内部')
+} catch {
+    $smiOk = $false
+}
+
+if ($smiOk) {
+    Ok "nvidia-smi 可用（驱动已装）"
+    # 提取显卡名和显存
+    if ($smiOut -match 'NVIDIA-SMI\s+([\d\.]+)') {
+        Write-Host "    驱动版本: $($matches[1])" -ForegroundColor DarkGray
+    }
+    if ($smiOut -match 'CUDA Version:\s*([\d\.]+)') {
+        Write-Host "    CUDA: $($matches[1])" -ForegroundColor DarkGray
+    }
+    $gpuLine = ($smiOut -split "`n" | Where-Object { $_ -match '\d+MiB' } | Select-Object -First 1)
+    if ($gpuLine) { Write-Host "    $($gpuLine.Trim())" -ForegroundColor DarkGray }
+} else {
+    Bad "nvidia-smi 不可用 —— 这台机器没有可用的 NVIDIA 显卡，或没装驱动"
+    Info "跑一下确认：nvidia-smi"
+    Info "  · 提示「不是内部或外部命令」→ 没有显卡驱动"
+    Info "  · 命令存在但报错 → 驱动异常"
+    Info ""
+    Info "【重要】没有 GPU 无法训练 4B 模型。"
+    Info "  纯 CPU 训练约需 4 天，而且成本比 GPU 还高。"
+    Info "  请确认你租的实例带 GPU，或者换 Ubuntu + GPU 的容器。"
+    $problems += 2
+}
+
 Section "PyTorch / CUDA"
 
 $hasTorch = $false

@@ -144,20 +144,40 @@ function Install-Python {
         Info "没有 winget（Windows Server 2019 通常没有），用官方安装包"
     }
 
-    # 方案 B：下载官方安装包
-    $url = "https://www.python.org/ftp/python/3.12.8/python-3.12.8-amd64.exe"
+    # 方案 B：下载官方安装包（多源重试，国内镜像优先）
     $tmp = Join-Path $env:TEMP "python-3.12.8-amd64.exe"
+    $sources = @(
+        @{ Name = "华为云镜像"; Url = "https://mirrors.huaweicloud.com/python/3.12.8/python-3.12.8-amd64.exe" },
+        @{ Name = "npmmirror";  Url = "https://registry.npmmirror.com/-/binary/python/3.12.8/python-3.12.8-amd64.exe" },
+        @{ Name = "官方源";     Url = "https://www.python.org/ftp/python/3.12.8/python-3.12.8-amd64.exe" }
+    )
 
     Step "下载 Python 3.12.8（约 25 MB）"
-    Info $url
-    try {
-        $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing -TimeoutSec 300
-        Ok "下载完成：$tmp"
-    } catch {
-        Bad "下载失败：$($_.Exception.Message)"
-        Info "手动下载安装："
-        Info "  $url"
+    $ProgressPreference = 'SilentlyContinue'
+    $downloaded = $false
+
+    foreach ($src in $sources) {
+        if ($downloaded) { break }
+        Info "尝试 $($src.Name)：$($src.Url)"
+        try {
+            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+            Invoke-WebRequest -Uri $src.Url -OutFile $tmp -UseBasicParsing -TimeoutSec 180
+            $sw.Stop()
+            if ((Test-Path $tmp) -and ((Get-Item $tmp).Length -gt 10MB)) {
+                Ok "下载完成（$($src.Name)，$([math]::Round($sw.Elapsed.TotalSeconds)) 秒）"
+                $downloaded = $true
+            } else {
+                Warn2 "文件不完整，换下一个源"
+            }
+        } catch {
+            Warn2 "$($src.Name) 失败：$($_.Exception.Message.Split([char]10)[0])"
+        }
+    }
+
+    if (-not $downloaded) {
+        Bad "三个源都下载失败"
+        Info "手动下载安装（任一链接）："
+        foreach ($src in $sources) { Info "  $($src.Url)" }
         Info "  安装时务必勾选 Add python.exe to PATH"
         return $false
     }
@@ -239,9 +259,9 @@ function Install-PyTorch($py) {
 
     Step "开始安装"
     if ($py.Cmd -eq "py -3") {
-        Invoke-Python $py @("-m","pip","install","torch","torchvision","torchaudio","--index-url",$indexUrl)
+        Invoke-Python $py @("-m","pip","install","torch","torchvision","torchaudio","--index-url",$indexUrl,"--timeout","300","--retries","5")
     } else {
-        Invoke-Python $py @("-m","pip","install","torch","torchvision","torchaudio","--index-url",$indexUrl)
+        Invoke-Python $py @("-m","pip","install","torch","torchvision","torchaudio","--index-url",$indexUrl,"--timeout","300","--retries","5")
     }
 
     if ($LASTEXITCODE -ne 0) {
