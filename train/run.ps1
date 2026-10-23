@@ -138,6 +138,33 @@ print(str(p.name) + '|' + format(vram, '.1f') + '|' + str(torch.version.cuda))
     if ($vram -lt 15) { Warn "显存 $vram GB 偏小，4B 训练建议 16GB+" }
 }
 
+# ---- 判断用 bf16 还是 fp16（V100/T4 这类卡不支持 bf16）----
+$script:PrecisionArg = "bf16=true"
+$script:PrecisionName = "bf16"
+try {
+    $gpuName = (& $python -c "import torch; print(torch.cuda.get_device_name(0))").ToString().Trim()
+    $capMajor = [int]((& $python -c "import torch; print(torch.cuda.get_device_capability(0)[0])").ToString().Trim())
+    $capMinor = [int]((& $python -c "import torch; print(torch.cuda.get_device_capability(0)[1])").ToString().Trim())
+    Write-Host "    架构: SM $capMajor.$capMinor" -ForegroundColor DarkGray
+
+    # bf16 需要 Ampere 及以上（SM 8.0+）
+    # Volta=7.0, Turing=7.5, Ampere=8.0/8.6, Ada=8.9, Hopper=9.0
+    if ($capMajor -ge 8) {
+        $script:PrecisionArg = "bf16=true"
+        $script:PrecisionName = "bf16"
+        Ok "支持 bf16（Ampere 及以上）"
+    } else {
+        $script:PrecisionArg = "fp16=true"
+        $script:PrecisionName = "fp16"
+        Warn2 "$gpuName 是 SM $capMajor.$capMinor，不支持 bf16"
+        Info "改用 fp16（速度一样，精度略低但训练够用）"
+    }
+} catch {
+    Warn2 "判断精度失败，默认用 fp16（最兼容）"
+    $script:PrecisionArg = "fp16=true"
+    $script:PrecisionName = "fp16"
+}
+
 Ok "环境正常"
 
 # ---------- 2. 数据检查 ----------
@@ -247,7 +274,7 @@ if ($needWisdom) {
     Say "约 2045 条，20-30 分钟"
     $s = Get-Date
     $yaml = Get-YamlPath "stage1-wisdom"
-    & llamafactory-cli train $yaml "model_name_or_path=$BaseModel" "dataset_dir=$DataDir" "output_dir=$(Join-Path $OutDir 'stage1-wisdom')"
+    & llamafactory-cli train $yaml "model_name_or_path=$BaseModel" "dataset_dir=$DataDir" "output_dir=$(Join-Path $OutDir 'stage1-wisdom')" "$($script:PrecisionArg)"
     if ($LASTEXITCODE -ne 0) { Die "Stage 1 失败" }
     Ok "Stage 1 完成（$([math]::Round(((Get-Date) - $s).TotalMinutes)) 分钟）"
     $Stage2Base = Join-Path $OutDir "stage1-wisdom"
@@ -261,7 +288,7 @@ Write-Host "  Stage 2 / 说话层：让她像阿米娅那样说话" -ForegroundC
 Say "约 4824 条，20-30 分钟"
 $s = Get-Date
 $yaml = Get-YamlPath "stage2-persona"
-$stage2Args = @("train", $yaml, "model_name_or_path=$BaseModel", "dataset_dir=$DataDir", "output_dir=$(Join-Path $OutDir 'stage2-persona')")
+$stage2Args = @("train", $yaml, "model_name_or_path=$BaseModel", "dataset_dir=$DataDir", "output_dir=$(Join-Path $OutDir 'stage2-persona')", "$($script:PrecisionArg)")
 if ($Stage2Base) { $stage2Args += "adapter_name_or_path=$Stage2Base" }
 & llamafactory-cli @stage2Args
 if ($LASTEXITCODE -ne 0) { Die "Stage 2 失败" }
@@ -277,7 +304,7 @@ if ($haveExtra -and -not $OfficialOnly) {
     Say "在纯官方版基础上微调"
     $s = Get-Date
     $yaml = Get-YamlPath "stage3-extra"
-    & llamafactory-cli train $yaml "model_name_or_path=$BaseModel" "dataset_dir=$DataDir" "adapter_name_or_path=$FinalDir" "output_dir=$(Join-Path $OutDir 'stage3-extra')"
+    & llamafactory-cli train $yaml "model_name_or_path=$BaseModel" "dataset_dir=$DataDir" "adapter_name_or_path=$FinalDir" "output_dir=$(Join-Path $OutDir 'stage3-extra')" "$($script:PrecisionArg)"
     if ($LASTEXITCODE -eq 0) {
         Ok "Stage 3 完成（$([math]::Round(((Get-Date) - $s).TotalMinutes)) 分钟）→ 这是【官方+同人版】"
         $FinalDir = Join-Path $OutDir "stage3-extra"

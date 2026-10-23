@@ -236,8 +236,14 @@ try {
     $drive = (Get-Item $PSScriptRoot).PSDrive
     $freeGB = [math]::Round($drive.Free / 1GB, 1)
     Write-Host "    $($drive.Name): 盘可用 $freeGB GB"
-    if ($freeGB -lt 20) {
-        Warn2 "训练需要约 20 GB（模型 + 输出），空间偏紧"
+    if ($freeGB -lt 15) {
+        Bad "只有 $freeGB GB —— 训练需要约 20 GB，不够"
+        Info "PyTorch CUDA 版约 3 GB + 模型 8 GB + 输出 5 GB"
+        $problems++
+    } elseif ($freeGB -lt 25) {
+        Warn2 "$freeGB GB 偏紧（需要约 20 GB）"
+        Info "PyTorch 3 GB + 模型 8 GB + 输出 5 GB"
+        Info "勉强够，但中途可能报磁盘满。建议先清理或扩容"
         $warnings++
     } else {
         Ok "空间充足"

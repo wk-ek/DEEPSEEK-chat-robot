@@ -227,11 +227,17 @@ function Install-PyTorch($py) {
             if ($verNum -ge 126) { $cuda = "cu126" }
             elseif ($verNum -ge 124) { $cuda = "cu124" }
             elseif ($verNum -ge 121) { $cuda = "cu121" }
-            elseif ($verNum -ge 118) { $cuda = "cu118" }
             else {
-                Warn2 "CUDA $detected 太旧（需要 11.8+）"
-                Info "建议更新显卡驱动，或者换 Ubuntu 环境"
+                # CUDA 11.8 和更低版本都用 cu118。
+                # 关键：能不能跑取决于【驱动版本】，不是 nvidia-smi 显示的 CUDA 版本。
+                # cu118 的 PyTorch 需要驱动 >= 452.39（Windows）。
                 $cuda = "cu118"
+                if ($verNum -lt 118) {
+                    Warn2 "nvidia-smi 显示 CUDA $detected（较旧）"
+                    Info "这不影响使用 —— cu118 的 PyTorch 要求驱动 >= 452.39"
+                    Info "你的驱动如果比这个新，就能正常跑"
+                    Info "（驱动版本看 nvidia-smi 左上角）"
+                }
             }
         } else {
             Warn2 "检测不到 CUDA（nvidia-smi 没输出）"
