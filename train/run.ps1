@@ -282,9 +282,21 @@ if (-not $lfOk) {
                 "packaging", "protobuf", "pyyaml", "pydantic", "matplotlib", "setuptools"
             )
 
-            & $python -m pip install --no-index --find-links $wheelsDir @offlineDeps -q
-            if ($LASTEXITCODE -ne 0) {
-                Warn "离线安装部分失败，看上面的具体包名"
+            # 不用 -q，让 pip 显示「Installing collected packages」等进度
+            # 但要关掉下载进度条（本地文件，进度条没意义且刷屏）
+            $sw2 = [System.Diagnostics.Stopwatch]::StartNew()
+            # 必须用 2>&1 捕获：PowerShell 5.1 的 Transcript 抓不到原生程序的 stderr
+            $pipArgs = @("-m", "pip", "install", "--no-index", "--find-links", $wheelsDir, "--progress-bar", "off") + $offlineDeps
+            $pipLines = & $python @pipArgs 2>&1
+            $rc = $LASTEXITCODE
+            $sw2.Stop()
+            $pipLines | ForEach-Object { Write-Host "    $_" }
+            Info "耗时 $([math]::Round($sw2.Elapsed.TotalSeconds)) 秒"
+
+            if ($rc -ne 0) {
+                Warn "离线安装返回码 $rc，看上面的具体包名"
+                Info "如果报 torch 相关：云端 torch 可能没装好，跑 本地自检.bat 看"
+                Info "如果报某个包找不到：该包没打进 wheels，把日志发我补上"
             }
         } else {
             Warn "包内没有 vendor\wheels（或文件太少），只能联网装"
@@ -443,10 +455,11 @@ try {
 # 统一的调用函数
 function Invoke-Lf {
     param([string[]]$LfArgs)
+    # 2>&1 合并 stderr，否则 Python 的 traceback 在 Transcript 里看不到
     if ($LfExe) {
-        & $LfExe @LfArgs
+        & $LfExe @LfArgs 2>&1 | ForEach-Object { Write-Host $_ }
     } else {
-        & $python -m llamafactory.cli @LfArgs
+        & $python -m llamafactory.cli @LfArgs 2>&1 | ForEach-Object { Write-Host $_ }
     }
 }
 
