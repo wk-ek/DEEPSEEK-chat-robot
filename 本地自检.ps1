@@ -11,7 +11,32 @@
 #  或者双击 本地自检.bat
 # ============================================================
 
+param(
+    [string]$Log = ""
+)
+
 $ErrorActionPreference = "Continue"
+
+# ---- 日志：同时输出到控制台和 txt 文件 ----
+$script:LogFile = $null
+if ($Log) {
+    $script:LogFile = $Log
+    try {
+        $logDir = Split-Path $Log -Parent
+        if ($logDir -and -not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+        Start-Transcript -Path $Log -Force -ErrorAction Stop | Out-Null
+    } catch {
+        Write-Host "  ! 日志启动失败：$($_.Exception.Message)" -ForegroundColor Yellow
+        $script:LogFile = $null
+    }
+}
+
+function Stop-Log {
+    if ($script:LogFile) {
+        try { Stop-Transcript -ErrorAction SilentlyContinue | Out-Null } catch { }
+        $script:LogFile = $null
+    }
+}
 
 try {
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -40,7 +65,24 @@ Hr
 Section "系统信息"
 
 $os = Get-CimInstance Win32_OperatingSystem
-Write-Host "    系统: $($os.Caption) $($os.Version)"
+$osCaption = $os.Caption
+Write-Host "    系统: $osCaption $($os.Version)"
+
+# Windows Server 识别
+$isServer = $false
+if ($osCaption -match "Server" -or $os.ProductType -ne 1) { $isServer = $true }
+if ($isServer) {
+    $build = [int]($os.Version.Split('.')[2])
+    $serverName = if ($build -ge 22000) { "Windows Server 2022" } elseif ($build -ge 17763) { "Windows Server 2019" } elseif ($build -ge 14393) { "Windows Server 2016" } else { "Windows Server（旧版）" }
+    Write-Host "    检测到: $serverName" -ForegroundColor Yellow
+    $script:isServerOS = $true
+    if ($build -lt 17763) {
+        Warn2 "Server 版本较旧，部分 Python 包可能不兼容"
+        $warnings++
+    }
+    Write-Host "    注意: Server 版对消费级显卡（GeForce）的驱动支持有限" -ForegroundColor DarkYellow
+    Write-Host "          如果 nvidia-smi 用不了，多半是驱动问题，不是脚本问题" -ForegroundColor DarkYellow
+}
 
 $cpu = (Get-CimInstance Win32_Processor | Select-Object -First 1)
 Write-Host "    CPU:  $($cpu.Name.Trim())"
@@ -133,6 +175,20 @@ if (-not $hasTorch) {
         Bad "CUDA 不可用（PyTorch 可能是 CPU 版）"
         Info "重装 CUDA 版：pip install --force-reinstall torch --index-url https://download.pytorch.org/whl/cu121"
         $problems++
+
+        # Windows Server 上最常见的是驱动问题，不是 torch 问题
+        if ($script:isServerOS) {
+            Write-Host ""
+            Warn2 "这是 Windows Server —— 先确认驱动，再怀疑 torch"
+            Info "跑一下：nvidia-smi"
+            Info "  · 能输出显卡信息 → 驱动 OK，问题在 torch，按上面重装"
+            Info "  · 提示不是内部或外部命令 → 没装驱动，这是根本原因"
+            Info "  · 报错 → 驱动型号不匹配"
+            Write-Host ""
+            Info "Server 版的驱动坑：NVIDIA 官方不提供 GeForce 驱动给 Windows Server。"
+            Info "如果你的卡是 RTX 4090 这种消费卡，可能根本装不上驱动。"
+            Info "这时候别折腾了，换 Ubuntu 容器，同样的钱，一条命令搞定。"
+        }
     }
 }
 
@@ -254,4 +310,17 @@ Write-Host ""
 Hr
 Write-Host ""
 
-
+# ---- 收尾：关日志并告诉用户报告在哪 ----
+if ($script:LogFile) {
+    $logPath = $script:LogFile
+    Stop-Log
+    Write-Host ""
+    Write-Host "  报告已保存：$logPath" -ForegroundColor Green
+    if (Test-Path $logPath) {
+        $kb = [math]::Round((Get-Item $logPath).Length / 1KB, 1)
+        Write-Host "  文件大小：$kb KB" -ForegroundColor DarkGray
+    }
+} else {
+    Stop-Log
+}
+Write-Host ""

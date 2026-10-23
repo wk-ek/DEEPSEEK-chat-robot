@@ -19,7 +19,8 @@ param(
     [string]$DataDir,
     [string]$OutDir,
     [string]$BaseModel = "Qwen/Qwen3-4B-Instruct-2507",
-    [string]$LfDir
+    [string]$LfDir,
+    [string]$Log = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -33,7 +34,7 @@ try {
 function Say($msg) { Write-Host "  > $msg" -ForegroundColor Cyan }
 function Ok($msg) { Write-Host "  OK $msg" -ForegroundColor Green }
 function Warn($msg) { Write-Host "  ! $msg" -ForegroundColor Yellow }
-function Die($msg) { Write-Host "  X $msg" -ForegroundColor Red; exit 1 }
+function Die($msg) { Write-Host "  X $msg" -ForegroundColor Red; Stop-Log; exit 1 }
 function Hr { Write-Host ("  " + ("-" * 50)) -ForegroundColor DarkGray }
 
 $ScriptDir = $PSScriptRoot
@@ -58,6 +59,27 @@ if (-not $LfDir) { $LfDir = Join-Path $RootDir "LLaMA-Factory" }
 $env:PYTHONIOENCODING = "utf-8"
 
 Write-Host ""
+# ---- 日志：同时输出到控制台和 txt 文件 ----
+$script:LogFile = $null
+if ($Log) {
+    $script:LogFile = $Log
+    try {
+        $logDir = Split-Path $Log -Parent
+        if ($logDir -and -not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+        Start-Transcript -Path $Log -Force -ErrorAction Stop | Out-Null
+    } catch {
+        Write-Host "  ! 日志启动失败：$($_.Exception.Message)" -ForegroundColor Yellow
+        $script:LogFile = $null
+    }
+}
+
+function Stop-Log {
+    if ($script:LogFile) {
+        try { Stop-Transcript -ErrorAction SilentlyContinue | Out-Null } catch { }
+        $script:LogFile = $null
+    }
+}
+
 Write-Host "  === 阿米娅人格模型（Windows）===" -ForegroundColor Cyan
 Write-Host ""
 
@@ -153,6 +175,11 @@ if ($Dry) {
     Hr
     Write-Host "  -Dry：环境与数据检查完成，不安装依赖、不训练" -ForegroundColor Yellow
     Write-Host "  确认无误后运行： .\train\run.ps1" -ForegroundColor Yellow
+    if ($script:LogFile) {
+        $lp = $script:LogFile
+        Stop-Log
+        Write-Host "  日志已保存：$lp" -ForegroundColor Green
+    }
     Write-Host ""
     exit 0
 }
@@ -296,3 +323,5 @@ Write-Host ""
 Write-Host "  ! 立刻关机！挂一晚上 20-30 元" -ForegroundColor Yellow
 Write-Host "  GPU 预估花费：约 $([math]::Round($totalMin * 1.88 / 60, 2)) 元" -ForegroundColor DarkGray
 Write-Host ""
+
+Stop-Log

@@ -105,6 +105,45 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ---
 
+## 三之二、日志与报告
+
+所有脚本都支持 `-Log` 参数，把输出同时写进 txt 文件。
+
+### 双击 .bat（最简单，自动带日志）
+
+| 文件 | 作用 | 日志文件 |
+| --- | --- | --- |
+| `本地自检.bat` | 检查环境 | `自检报告-<时间戳>.txt` |
+| `开始训练.bat` | 开始训练 | `训练日志-<时间戳>.txt` |
+
+双击就行，日志自动生成在同一个目录。
+
+### 手动指定日志路径
+
+```powershell
+# 自检
+.\本地自检.ps1 -Log "C:\report\自检.txt"
+
+# 训练
+.\train\run.ps1 -Log "C:\report\train.txt"
+```
+
+### 日志里有什么
+
+txt 文件包含**完整控制台输出**，包括：
+
+- 环境检查的每一项结果
+- 数据量的统计
+- 每个训练阶段的进度和耗时
+- 报错信息和排查建议
+- 最后的产物路径和花费
+
+**出问题时把这个 txt 发出来就能定位。**
+
+> 日志开头有十几行 PowerShell transcript 元信息（版本、机器名、启动命令），
+> 从 `***` 分隔线之后才是正文。
+
+---
 ## 四、正式训练
 
 ```powershell
@@ -155,6 +194,94 @@ C:\Users\Administrator\amiya-train\output\
 
 ---
 
+## 五之二、Windows Server 2019 特别说明
+
+如果你云端实例是 **Windows Server 2019**（不是 Windows 10/11），注意这几点。
+
+### 能跑吗
+
+**能，但 GPU 驱动是最大风险。**
+
+| 项目 | 情况 |
+| --- | --- |
+| PowerShell | Server 2019 自带 5.1，`run.ps1` 就是按 5.1 写的，兼容 |
+| 执行策略 | 默认更严，`本地自检.bat` 和 `run.ps1` 都已带 `-ExecutionPolicy Bypass` |
+| **GPU 驱动** | ⚠️ **可能装不上**（见下） |
+| VC++ 运行库 | 可能缺，装依赖时报错再补 |
+
+### GPU 驱动是最大的坑
+
+NVIDIA **官方不提供 GeForce 驱动给 Windows Server**。所以：
+
+| 你的卡 | 情况 |
+| --- | --- |
+| Tesla / Quadro / A 系列 | 官方有 Server 驱动，正常 |
+| **RTX 4090 / 3090（消费卡）** | 官方不支持，看云平台有没有预装改版驱动 |
+
+**先跑这个判断：**
+
+```powershell
+nvidia-smi
+```
+
+| 输出 | 含义 | 怎么办 |
+| --- | --- | --- |
+| 显卡信息 + CUDA Version | ✅ 驱动 OK | 直接往下走，能训练 |
+| `不是内部或外部命令` | ❌ 没驱动 | 找云平台客服要驱动，或者干脆换 Ubuntu |
+| 报错 | ❌ 驱动有问题 | 同上 |
+
+### 如果 nvidia-smi 用不了
+
+**别折腾了，换 Ubuntu 容器。**
+
+同样的价钱（1.88 元/时），差别是：
+
+| | Windows Server 2019 | Ubuntu 22.04 |
+| --- | --- | --- |
+| GPU 驱动 | 消费卡可能装不上 | 平台预装，开箱能用 |
+| bitsandbytes | 经常要降级 | 原生支持 |
+| 训练命令 | `.\train\run.ps1` | `bash train/run.sh` |
+| 长任务保护 | 远程桌面断开会中断 | tmux 成熟 |
+
+### Windows Server 上怎么跑
+
+如果驱动没问题，流程和普通 Windows 一样：
+
+```powershell
+# 解压后进目录
+cd C:\Users\Administrator\amiya-train
+
+# 自检（会特意提示 Server 的注意事项）
+.\train\本地自检.ps1
+
+# 预检
+.\train\run.ps1 -Dry
+
+# 训练
+.\train\run.ps1
+```
+
+自检脚本会识别出 Server 系统，在 CUDA 不可用时给出「先查驱动，再怀疑 torch」的提示。
+
+### Server 上另外两个小题
+
+**1. 可能缺 VC++ 运行库**
+
+装依赖时报 `Microsoft Visual C++ 14.0 or greater is required`：
+
+```
+下载安装：https://aka.ms/vs/17/release/vc_redist.x64.exe
+```
+
+**2. 远程桌面断开会让训练中断**
+
+Server 版没有 tmux 这类工具。三个办法：
+
+- 训练期间别关远程桌面窗口
+- 用 `Start-Process` 配合计划任务（麻烦）
+- **或者干脆换 Ubuntu**（`tmux new -s train` 一行搞定）
+
+---
 ## 六、Windows 特有的坑
 
 ### 1. `无法加载文件...未对文件进行数字签名`
