@@ -36,6 +36,7 @@ function Ok($msg) { Write-Host "  OK $msg" -ForegroundColor Green }
 function Warn($msg) { Write-Host "  ! $msg" -ForegroundColor Yellow }
 function Die($msg) { Write-Host "  X $msg" -ForegroundColor Red; Stop-Log; exit 1 }
 function Hr { Write-Host ("  " + ("-" * 50)) -ForegroundColor DarkGray }
+function Info($m) { Write-Host "      $m" -ForegroundColor DarkGray }
 
 $ScriptDir = $PSScriptRoot
 $RootDir = Split-Path $ScriptDir -Parent
@@ -216,24 +217,136 @@ Hr
 $lfCli = $null
 try { $lfCli = (Get-Command llamafactory-cli -ErrorAction Stop).Source } catch { }
 
-if (-not $lfCli) {
-    Say "安装 LLaMA-Factory（首次约 5-10 分钟）"
-    if (-not (Test-Path $LfDir)) {
-        git clone --depth 1 https://github.com/hiyouga/LLaMA-Factory.git $LfDir
-        if ($LASTEXITCODE -ne 0) { Die "git clone 失败。装 Git: https://git-scm.com/download/win" }
-    }
-    Push-Location $LfDir
-    try {
-        & $python -m pip install -e ".[torch,metrics]" -q
+# 判断 LLaMA-Factory 是否可用（用 python -m 检测，不依赖 PATH）
+$lfOk = $false
+try {
+    $null = & $python -c "import llamafactory" 2>&1
+    $lfOk = ($LASTEXITCODE -eq 0)
+} catch { $lfOk = $false }
+
+if (-not $lfOk -and $lfCli) { $lfOk = $true }
+
+if (-not $lfOk) {
+    Say "安装 LLaMA-Factory"
+
+    # ★ 优先用包内自带的源码（train\vendor\LLaMA-Factory）
+    #   这样完全不需要网络，也不依赖 git
+    $vendorDir = Join-Path $ScriptDir "vendor\LLaMA-Factory"
+    if ((Test-Path $vendorDir) -and (Test-Path (Join-Path $vendorDir "pyproject.toml"))) {
+        Ok "使用包内自带的源码：train\vendor\LLaMA-Factory"
+        Say "安装依赖（这一步要联网下 transformers/peft/trl 等，约 5-10 分钟）"
+
+        & $python -m pip install -e $vendorDir --no-deps -q
+        if ($LASTEXITCODE -ne 0) { Warn "editable 安装失败，尝试普通安装" }
+
+        # 单独装依赖（用清华源，避免 --no-deps 漏掉）
+        $deps = @(
+            "transformers>=4.55.0,<=5.8.0",
+            "datasets>=2.16.0,<=4.0.0",
+            "accelerate>=1.3.0,<=1.11.0",
+            "peft>=0.18.0,<=0.18.1",
+            "trl>=0.18.0,<=0.24.0",
+            "torchdata>=0.10.0,<=0.11.0",
+            "safetensors",
+            "sentencepiece",
+            "protobuf",
+            "pyyaml",
+            "numpy",
+            "pandas",
+            "jinja2",
+            "rich",
+            "tyro",
+            "fire",
+            "omegaconf",
+            "einops",
+            "scipy",
+            "matplotlib",
+            "tiktoken",
+            "hf_transfer"
+        )
+        Say "装 $($deps.Count) 个依赖包"
+        & $python -m pip install @deps -q -i https://pypi.tuna.tsinghua.edu.cn/simple --timeout 300 --retries 3
         if ($LASTEXITCODE -ne 0) {
-            Warn "标准安装失败，换国内源重试"
-            & $python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -e ".[torch,metrics]" -q
-            if ($LASTEXITCODE -ne 0) {
-                Die "依赖安装失败。常见原因：缺 Visual Studio Build Tools（https://visualstudio.microsoft.com/visual-cpp-build-tools/）"
-            }
+            Warn "清华源失败，换阿里云"
+            & $python -m pip install @deps -q -i https://mirrors.aliyun.com/pypi/simple --timeout 300 --retries 3
         }
-    } finally { Pop-Location }
-    Ok "安装完成"
+
+        try {
+            $null = & $python -c "import llamafactory" 2>&1
+            $lfOk = ($LASTEXITCODE -eq 0)
+        } catch { $lfOk = $false }
+
+        if (-not $lfOk) {
+            Warn "依赖装完了但 import 失败，试试能跑不"
+            $lfOk = $true
+        }
+        if ($lfOk) { Ok "LLaMA-Factory 安装完成（用包内源码）" }
+    } else {
+        Warn "包内没有 vendor\LLaMA-Factory，改用联网安装"
+    }
+}
+
+if (-not $lfOk) {
+    Say "联网安装 LLaMA-Factory"
+
+    # 方式 1：pip install llamafactory（不需要 git）
+    Say "方式 1/2：pip install llamafactory"
+    & $python -m pip install llamafactory -q --timeout 300 --retries 3
+    if ($LASTEXITCODE -ne 0) {
+        Warn "PyPI 直连失败，换清华源"
+        & $python -m pip install llamafactory -q -i https://pypi.tuna.tsinghua.edu.cn/simple --timeout 300 --retries 3
+    }
+
+    try {
+        $null = & $python -c "import llamafactory" 2>&1
+        $lfOk = ($LASTEXITCODE -eq 0)
+    } catch { $lfOk = $false }
+
+    # 方式 2：下载 zip 解压再装（pip 也失败时）
+    if (-not $lfOk) {
+        Warn "pip 安装失败，改用下载 zip"
+        $zipUrl = "https://github.com/hiyouga/LLaMA-Factory/archive/refs/heads/main.zip"
+        $zipTmp = Join-Path $env:TEMP "LLaMA-Factory-main.zip"
+        $extractDir = Join-Path $env:TEMP "lf_extract"
+
+        try {
+            Say "下载 LLaMA-Factory（约 15 MB）"
+            $ProgressPreference = 'SilentlyContinue'
+            Invoke-WebRequest -Uri $zipUrl -OutFile $zipTmp -UseBasicParsing -TimeoutSec 300
+            if (Test-Path $extractDir) { Remove-Item $extractDir -Recurse -Force }
+            Expand-Archive -Path $zipTmp -DestinationPath $extractDir -Force
+            $sub = Get-ChildItem $extractDir -Directory | Select-Object -First 1
+            if ($sub) {
+                Push-Location $sub.FullName
+                try {
+                    & $python -m pip install -e . -q -i https://pypi.tuna.tsinghua.edu.cn/simple --timeout 300
+                } finally { Pop-Location }
+            }
+            try {
+                $null = & $python -c "import llamafactory" 2>&1
+                $lfOk = ($LASTEXITCODE -eq 0)
+            } catch { $lfOk = $false }
+        } catch {
+            Warn "下载 zip 也失败：$($_.Exception.Message.Split([char]10)[0])"
+        }
+    }
+
+    if (-not $lfOk) {
+        Die @"
+LLaMA-Factory 安装失败。
+
+常见原因：
+  1. 没有网络到 pypi.org 且清华源也不行
+  2. 缺 Visual Studio Build Tools（部分包要编译）
+     装这个：https://aka.ms/vs/17/release/vc_redist.x64.exe
+  3. Python 版本太新导致某些包没有预编译 wheel
+     这台是 Python 3.12，如果某个包只支持到 3.11，需要降到 3.11
+
+手动试一下看具体报错：
+  $python -m pip install llamafactory
+"@
+    }
+    Ok "LLaMA-Factory 安装完成"
 } else {
     Ok "LLaMA-Factory 已安装"
 }
@@ -266,6 +379,35 @@ function Get-YamlPath($name) {
     return (Join-Path $ScriptDir ($name + ".yaml"))
 }
 
+# ---------- 4.5 定位 llamafactory-cli 的真实路径 ----------
+# pip 安装的脚本在 Python 的 Scripts 目录，可能不在 PATH 里
+$LfExe = $null
+try {
+    $scriptsDir = (& $python -c "import sysconfig; print(sysconfig.get_path('scripts'))").ToString().Trim()
+    foreach ($name in @("llamafactory-cli.exe", "llamafactory-cli")) {
+        $cand = Join-Path $scriptsDir $name
+        if (Test-Path $cand) { $LfExe = $cand; break }
+    }
+    if (-not $LfExe) {
+        Info "Scripts 目录: $scriptsDir"
+        Info "没找到 llamafactory-cli，改用 python -m 调用"
+    } else {
+        Ok "llamafactory-cli: $LfExe"
+    }
+} catch {
+    Warn "定位 llamafactory-cli 失败，改用 python -m"
+}
+
+# 统一的调用函数
+function Invoke-Lf {
+    param([string[]]$LfArgs)
+    if ($LfExe) {
+        & $LfExe @LfArgs
+    } else {
+        & $python -m llamafactory.cli @LfArgs
+    }
+}
+
 # ---------- 5. Stage 1 ----------
 $Stage2Base = ""
 if ($needWisdom) {
@@ -274,7 +416,7 @@ if ($needWisdom) {
     Say "约 2045 条，20-30 分钟"
     $s = Get-Date
     $yaml = Get-YamlPath "stage1-wisdom"
-    & llamafactory-cli train $yaml "model_name_or_path=$BaseModel" "dataset_dir=$DataDir" "output_dir=$(Join-Path $OutDir 'stage1-wisdom')" @script:PrecisionArgs
+    Invoke-Lf (@("train", $yaml, "model_name_or_path=$BaseModel", "dataset_dir=$DataDir", "output_dir=$(Join-Path $OutDir 'stage1-wisdom')") + $script:PrecisionArgs)
     if ($LASTEXITCODE -ne 0) { Die "Stage 1 失败" }
     Ok "Stage 1 完成（$([math]::Round(((Get-Date) - $s).TotalMinutes)) 分钟）"
     $Stage2Base = Join-Path $OutDir "stage1-wisdom"
@@ -290,7 +432,7 @@ $s = Get-Date
 $yaml = Get-YamlPath "stage2-persona"
 $stage2Args = @("train", $yaml, "model_name_or_path=$BaseModel", "dataset_dir=$DataDir", "output_dir=$(Join-Path $OutDir 'stage2-persona')") + $script:PrecisionArgs
 if ($Stage2Base) { $stage2Args += "adapter_name_or_path=$Stage2Base" }
-& llamafactory-cli @stage2Args
+Invoke-Lf $stage2Args
 if ($LASTEXITCODE -ne 0) { Die "Stage 2 失败" }
 Ok "Stage 2 完成（$([math]::Round(((Get-Date) - $s).TotalMinutes)) 分钟）→ 这是【纯官方版】"
 
@@ -304,7 +446,7 @@ if ($haveExtra -and -not $OfficialOnly) {
     Say "在纯官方版基础上微调"
     $s = Get-Date
     $yaml = Get-YamlPath "stage3-extra"
-    & llamafactory-cli train $yaml "model_name_or_path=$BaseModel" "dataset_dir=$DataDir" "adapter_name_or_path=$FinalDir" "output_dir=$(Join-Path $OutDir 'stage3-extra')" @script:PrecisionArgs
+    Invoke-Lf (@("train", $yaml, "model_name_or_path=$BaseModel", "dataset_dir=$DataDir", "adapter_name_or_path=$FinalDir", "output_dir=$(Join-Path $OutDir 'stage3-extra')") + $script:PrecisionArgs)
     if ($LASTEXITCODE -eq 0) {
         Ok "Stage 3 完成（$([math]::Round(((Get-Date) - $s).TotalMinutes)) 分钟）→ 这是【官方+同人版】"
         $FinalDir = Join-Path $OutDir "stage3-extra"
@@ -336,13 +478,13 @@ if (-not $SkipExport) {
     Say "把 LoRA 合并进基座，约 10 分钟"
 
     $yaml = Get-YamlPath "stage2-persona"
-    & llamafactory-cli export $yaml "model_name_or_path=$BaseModel" "adapter_name_or_path=$(Join-Path $OutDir 'stage2-persona')" "export_dir=$(Join-Path $OutDir 'amiya-official-merged')" "export_size=4"
+    Invoke-Lf @("export", $yaml, "model_name_or_path=$BaseModel", "adapter_name_or_path=$(Join-Path $OutDir 'stage2-persona')", "export_dir=$(Join-Path $OutDir 'amiya-official-merged')", "export_size=4")
     if ($LASTEXITCODE -eq 0) { Ok "官方版 → $OutDir\amiya-official-merged" }
     else { Warn "官方版合并失败（LoRA 还在，可稍后单独导出）" }
 
     if ($FinalName -eq "amiya-extra") {
         $yaml3 = Get-YamlPath "stage3-extra"
-        & llamafactory-cli export $yaml3 "model_name_or_path=$BaseModel" "adapter_name_or_path=$(Join-Path $OutDir 'stage3-extra')" "export_dir=$(Join-Path $OutDir 'amiya-extra-merged')" "export_size=4"
+        Invoke-Lf @("export", $yaml3, "model_name_or_path=$BaseModel", "adapter_name_or_path=$(Join-Path $OutDir 'stage3-extra')", "export_dir=$(Join-Path $OutDir 'amiya-extra-merged')", "export_size=4")
         if ($LASTEXITCODE -eq 0) { Ok "同人版 → $OutDir\amiya-extra-merged" }
         else { Warn "同人版合并失败（LoRA 还在）" }
     }

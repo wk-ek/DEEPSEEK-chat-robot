@@ -26,6 +26,8 @@ HANDOFF.md
 
 # ---- 训练数据（含剧情原文，不公开）----
 dist/
+train/vendor/
+
 LLaMA-Factory/
 LLaMA-Factory
 train/data/
