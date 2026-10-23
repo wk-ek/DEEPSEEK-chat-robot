@@ -204,6 +204,57 @@ txt 文件包含**完整控制台输出**，包括：
 > 从 `***` 分隔线之后才是正文。
 
 ---
+## 三之三、离线依赖（本包已内置）
+
+包里带了 **82 个 wheel（144 MB）**，LLaMA-Factory 的所有依赖都在里面，**安装时完全不需要联网**。
+
+```
+amiya-train\train\vendor\
+├── LLaMA-Factory\    源码（2 MB）
+└── wheels\           82 个依赖包（144 MB）
+```
+
+`run.ps1` 会自动走离线安装：
+
+```
+> 安装 LLaMA-Factory
+OK 使用包内自带的源码：train\vendor\LLaMA-Factory
+OK 使用包内离线依赖：82 个 wheel，144 MB
+> 完全不需要联网，从本地 wheel 安装
+```
+
+### 没打包的三个大包及其原因
+
+| 包 | 大小 | 为什么跳过 |
+| --- | --- | --- |
+| **torch / torchvision / torchaudio** | 124 MB | 云端已装 2.7.1+cu118。PyPI 上的是 CPU 版，装错会覆盖掉 CUDA 版 |
+| **gradio** | 60 MB | 只用于 WebUI。查过源码，`train` 和 `export` 分支不走 webui |
+| **av** | 32 MB | 视频处理，源码里没有任何 `import av` |
+
+另外 `modelscope` / `uvicorn` / `fastapi` / `sse-starlette` 也没打（国内模型源和 API 服务，训练用不到），省了 6 MB。
+
+### 唯一还需要联网的地方
+
+**下载 Qwen3-4B 模型（8 GB）。**
+
+从 HuggingFace 下，国内可能慢。如果卡住，可以设置镜像：
+
+```powershell
+$env:HF_ENDPOINT = "https://hf-mirror.com"
+```
+
+然后重新跑 `开始训练.bat`。
+
+### 如果离线安装报错
+
+看报错里的包名，基本只有两种可能：
+
+| 报错 | 原因 |
+| --- | --- |
+| `No matching distribution found for xxx` | 该包没打进 wheels，发日志给我补 |
+| `Could not find a version that satisfies the requirement torch` | 云端的 torch 没装好，跑 `本地自检.bat` 看 PyTorch 那一节 |
+
+---
 ## 四、正式训练
 
 ```powershell

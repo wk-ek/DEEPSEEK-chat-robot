@@ -239,36 +239,48 @@ if (-not $lfOk) {
         & $python -m pip install -e $vendorDir --no-deps -q
         if ($LASTEXITCODE -ne 0) { Warn "editable 安装失败，尝试普通安装" }
 
-        # 单独装依赖（用清华源，避免 --no-deps 漏掉）
-        $deps = @(
-            "transformers>=4.55.0,<=5.8.0",
-            "datasets>=2.16.0,<=4.0.0",
-            "accelerate>=1.3.0,<=1.11.0",
-            "peft>=0.18.0,<=0.18.1",
-            "trl>=0.18.0,<=0.24.0",
-            "torchdata>=0.10.0,<=0.11.0",
-            "safetensors",
-            "sentencepiece",
-            "protobuf",
-            "pyyaml",
-            "numpy",
-            "pandas",
-            "jinja2",
-            "rich",
-            "tyro",
-            "fire",
-            "omegaconf",
-            "einops",
-            "scipy",
-            "matplotlib",
-            "tiktoken",
-            "hf_transfer"
-        )
-        Say "装 $($deps.Count) 个依赖包"
-        & $python -m pip install @deps -q -i https://pypi.tuna.tsinghua.edu.cn/simple --timeout 300 --retries 3
-        if ($LASTEXITCODE -ne 0) {
-            Warn "清华源失败，换阿里云"
-            & $python -m pip install @deps -q -i https://mirrors.aliyun.com/pypi/simple --timeout 300 --retries 3
+        # ★ 优先用包内离线 wheel（完全不需要联网）
+        $wheelsDir = Join-Path $ScriptDir "vendor\wheels"
+        $wheelCount = 0
+        if (Test-Path $wheelsDir) {
+            $wheelCount = (Get-ChildItem $wheelsDir -Filter *.whl -ErrorAction SilentlyContinue | Measure-Object).Count
+        }
+
+        if ($wheelCount -ge 20) {
+            $wheelsMB = [math]::Round(((Get-ChildItem $wheelsDir -Filter *.whl | Measure-Object -Sum Length).Sum / 1MB), 0)
+            Ok "使用包内离线依赖：$wheelCount 个 wheel，$wheelsMB MB"
+            Say "完全不需要联网，从本地 wheel 安装"
+
+            $offlineDeps = @(
+                "transformers", "datasets", "accelerate", "peft", "trl", "torchdata",
+                "tyro", "einops", "numpy", "pandas", "scipy", "sentencepiece",
+                "tiktoken", "hf-transfer", "safetensors", "fire", "omegaconf",
+                "packaging", "protobuf", "pyyaml", "pydantic", "matplotlib", "setuptools"
+            )
+
+            & $python -m pip install --no-index --find-links $wheelsDir @offlineDeps -q
+            if ($LASTEXITCODE -ne 0) {
+                Warn "离线安装部分失败，看上面的具体包名"
+            }
+        } else {
+            Warn "包内没有 vendor\wheels（或文件太少），只能联网装"
+            $deps = @(
+                "transformers>=4.55.0,<=5.8.0",
+                "datasets>=2.16.0,<=4.0.0",
+                "accelerate>=1.3.0,<=1.11.0",
+                "peft>=0.18.0,<=0.18.1",
+                "trl>=0.18.0,<=0.24.0",
+                "torchdata>=0.10.0,<=0.11.0",
+                "tyro", "einops", "numpy", "pandas", "scipy", "sentencepiece",
+                "tiktoken", "hf-transfer", "safetensors", "fire", "omegaconf",
+                "packaging", "protobuf", "pyyaml", "pydantic", "matplotlib", "setuptools"
+            )
+            Say "装 $($deps.Count) 个依赖包（联网）"
+            & $python -m pip install @deps -q -i https://pypi.tuna.tsinghua.edu.cn/simple --timeout 300 --retries 3
+            if ($LASTEXITCODE -ne 0) {
+                Warn "清华源失败，换阿里云"
+                & $python -m pip install @deps -q -i https://mirrors.aliyun.com/pypi/simple --timeout 300 --retries 3
+            }
         }
 
         try {
@@ -276,11 +288,6 @@ if (-not $lfOk) {
             $lfOk = ($LASTEXITCODE -eq 0)
         } catch { $lfOk = $false }
 
-        if (-not $lfOk) {
-            Warn "依赖装完了但 import 失败，试试能跑不"
-            $lfOk = $true
-        }
-        if ($lfOk) { Ok "LLaMA-Factory 安装完成（用包内源码）" }
     } else {
         Warn "包内没有 vendor\LLaMA-Factory，改用联网安装"
     }
