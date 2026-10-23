@@ -23,7 +23,7 @@ param(
     [string]$Log = ""
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 # ---- 控制台 UTF-8，避免中文乱码 ----
 try {
@@ -37,6 +37,14 @@ function Warn($msg) { Write-Host "  ! $msg" -ForegroundColor Yellow }
 function Die($msg) { Write-Host "  X $msg" -ForegroundColor Red; Stop-Log; exit 1 }
 function Hr { Write-Host ("  " + ("-" * 50)) -ForegroundColor DarkGray }
 function Info($m) { Write-Host "      $m" -ForegroundColor DarkGray }
+
+# 检查外部命令退出码，非零就中止（替代 ErrorActionPreference = Stop 的作用）
+function Assert-Exit {
+    param([string]$What)
+    if ($LASTEXITCODE -ne 0) {
+        Die "$What 失败（退出码 $LASTEXITCODE），往上翻看具体报错"
+    }
+}
 
 $ScriptDir = $PSScriptRoot
 $RootDir = Split-Path $ScriptDir -Parent
@@ -368,12 +376,23 @@ try {
 } catch { }
 
 if (-not $hasBnb) {
-    Warn "没装 bitsandbytes，尝试安装…"
-    & $python -m pip install bitsandbytes -q 2>&1 | Out-Null
+    $bnbWheelDir = Join-Path $ScriptDir "vendor\wheels"
+    $bnbWheel = Get-ChildItem $bnbWheelDir -Filter "bitsandbytes-*.whl" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($bnbWheel) {
+        Warn "没装 bitsandbytes，从包内离线安装（$($bnbWheel.Name)）"
+        & $python -m pip install --no-index --find-links $bnbWheelDir --no-deps bitsandbytes -q 2>&1 | Out-Null
+    } else {
+        Warn "没装 bitsandbytes，尝试联网安装…"
+        & $python -m pip install bitsandbytes -q 2>&1 | Out-Null
+    }
     try {
         $null = & $python -c "import bitsandbytes" 2>&1
         $hasBnb = ($LASTEXITCODE -eq 0)
-    } catch { }
+    } catch { $hasBnb = $false }
+    if (-not $hasBnb) {
+        Info "bitsandbytes 装不上无所谓 —— V100 用 fp16 LoRA 一样能训"
+        Info "会自动切到不带量化的配置（多占约 6 GB 显存，32 GB 完全够）"
+    }
 }
 
 
