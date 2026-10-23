@@ -2,6 +2,7 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 title 一键启动 - 大肥鱼
+setlocal enabledelayedexpansion
 
 echo.
 echo   ============================================
@@ -17,8 +18,7 @@ if not exist "%NAPCAT_EXE%" (
     echo        %NAPCAT_EXE%
     echo.
     echo        请检查 NapCat 目录是否完整。
-    pause
-    exit /b 1
+    goto :end_err
 )
 
 echo  [1/3] 清理可能冲突的 QQ 进程...
@@ -39,10 +39,13 @@ if not errorlevel 1 (
 
 echo.
 echo  [2/3] 启动 NapCat...
+echo        注意：会打开一个新窗口显示扫码登录，那个窗口不要关。
+echo.
 start "NapCat" /d "%NAPCAT_DIR%" cmd /k "chcp 65001 >nul && NapCatWinBootMain.exe"
 
 echo        等待 NapCat 就绪（最多 120 秒）...
 echo        提示：NapCat 会打开一个 QR 扫码窗口，第一次用要扫码登录。
+echo.
 
 set /a WAIT=0
 :waitloop
@@ -50,8 +53,8 @@ timeout /t 3 /nobreak >nul
 set /a WAIT+=1
 netstat -ano | findstr ":3001" | findstr "LISTENING" >nul 2>&1
 if not errorlevel 1 goto ready
-if %WAIT% geq 40 goto timeout
-echo        第 %WAIT% 次检查，还没起来...
+if !WAIT! geq 40 goto timeout
+echo        第 !WAIT! 次检查，还没起来...
 goto waitloop
 
 :ready
@@ -60,15 +63,24 @@ echo        [成功] NapCat 已就绪（端口 3001 已监听）
 echo.
 echo  [3/3] 启动机器人...
 echo.
+echo        机器人日志会直接显示在下面。
+echo        要停止机器人：按 Ctrl+C
+echo.
 timeout /t 2 /nobreak >nul
 node src/index.js
+set "BOT_EXIT=%ERRORLEVEL%"
 
 echo.
 echo   ============================================
-echo     机器人已停止。按任意键关闭窗口。
+echo     机器人已停止（退出码 %BOT_EXIT%）
+if not "%BOT_EXIT%"=="0" (
+    echo     非正常退出，往上翻看错误信息
+)
 echo   ============================================
-pause >nul
-exit /b 0
+echo.
+echo   NapCat 那个窗口还在运行，如需彻底关闭请手动关掉。
+echo.
+goto :end
 
 :timeout
 echo.
@@ -92,5 +104,16 @@ echo               onebot11_2034919973.json
 echo.
 echo        详细诊断：node scripts\napcat-doctor.mjs
 echo.
-pause
-exit /b 1
+goto :end_err
+
+:end_err
+echo.
+echo   ============================================
+echo     脚本异常结束，上面是原因
+echo   ============================================
+echo.
+
+:end
+echo   窗口不会自动关闭，看完了按任意键...
+pause >nul
+exit /b 0

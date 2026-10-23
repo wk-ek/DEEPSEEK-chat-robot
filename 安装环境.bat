@@ -2,6 +2,7 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 title 环境安装 - Python + PyTorch
+setlocal enabledelayedexpansion
 
 for /f "delims=" %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd-HHmmss"') do set "TS=%%i"
 set "LOG=%~dp0安装日志-%TS%.txt"
@@ -31,15 +32,23 @@ echo 按任意键开始，或直接关窗口取消...
 pause >nul
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0安装环境.ps1" -Log "%LOG%"
+set "RC=%ERRORLEVEL%"
 
 echo.
 echo   ============================================
-echo   完成
+if "%RC%"=="0" (
+    echo   流程结束
+) else (
+    echo   流程结束（返回码 %RC%），上面有具体信息
+)
 echo   日志: %LOG%
 echo   ============================================
 echo.
 echo   重要：如果刚装了 Python，需要重开一个
 echo         新的 PowerShell 窗口，PATH 才会生效。
 echo.
-echo 按任意键关闭窗口...
+
+:end
+echo   窗口不会自动关闭，看完了按任意键...
 pause >nul
+exit /b 0

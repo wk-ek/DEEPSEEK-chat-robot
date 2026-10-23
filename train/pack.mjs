@@ -40,6 +40,12 @@ const INCLUDE = [
   { from: 'config/persona.amiya.profile.json', to: 'config/persona.amiya.profile.json' },
   // 基础配置
   { from: 'config/config.example.json', to: 'config/config.example.json' },
+  // 根目录的启动脚本（解压后直接双击用）
+  { from: '本地自检.bat', to: '本地自检.bat' },
+  { from: '本地自检.ps1', to: '本地自检.ps1' },
+  { from: '安装环境.bat', to: '安装环境.bat' },
+  { from: '安装环境.ps1', to: '安装环境.ps1' },
+  { from: '开始训练.bat', to: '开始训练.bat' },
   { from: 'package.json', to: 'package.json' },
 ];
 
