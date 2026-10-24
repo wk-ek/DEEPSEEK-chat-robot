@@ -25,7 +25,7 @@ import {
   describePersona,
   stickerKeysFor,
 } from '../src/persona/identities.js';
-import { applyIdentityAppearance } from '../src/persona/appearance.js';
+import { applyIdentityAppearance , cardNameFor } from '../src/persona/appearance.js';
 import { keywords } from '../src/memory/store.js';
 import { parseJsonLoose } from '../src/llm/deepseek.js';
 
@@ -510,4 +510,32 @@ test('敏感名单：政治人名和绰号能被匹配到', () => {
   // 空字符串 / null
   assert.deepEqual(hitsSensitiveName(''), []);
   assert.deepEqual(hitsSensitiveName(null), []);
+});
+
+// ---------------- 群名片上的模型标识 ----------------
+
+test('本地模型：群名片带「（本地模型）」后缀', () => {
+  assert.equal(cardNameFor('大肥鱼', 'local'), '大肥鱼（本地模型）');
+  assert.equal(cardNameFor('阿米娅', 'local'), '阿米娅（本地模型）');
+});
+
+test('云端模型：群名片保持原名', () => {
+  assert.equal(cardNameFor('大肥鱼', 'deepseek'), '大肥鱼');
+  assert.equal(cardNameFor('阿米娅', 'deepseek'), '阿米娅');
+});
+
+test('名片后缀幂等，重复应用不会叠加', () => {
+  const once = cardNameFor('大肥鱼', 'local');
+  const twice = cardNameFor(once, 'local');
+  assert.equal(twice, '大肥鱼（本地模型）');
+});
+
+test('从本地切到云端时会把后缀去掉', () => {
+  assert.equal(cardNameFor('大肥鱼（本地模型）', 'deepseek'), '大肥鱼');
+});
+
+test('空名字原样返回，不会变成「（本地模型）」', () => {
+  assert.equal(cardNameFor('', 'local'), '');
+  assert.equal(cardNameFor(null, 'local'), null);
+  assert.equal(cardNameFor(undefined, 'local'), undefined);
 });

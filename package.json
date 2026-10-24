@@ -15,6 +15,6 @@
     "fetch-napcat": "node scripts/fetch-napcat.mjs",
     "doctor": "node scripts/doctor.js",
     "status": "node scripts/status.js",
-    "test": "node --test --test-isolation=none ./test/unit.test.js"
+    "test": "node --env-file=.env.test --test --test-isolation=none ./test/unit.test.js"
   }
 }

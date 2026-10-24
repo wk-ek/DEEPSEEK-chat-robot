@@ -9,7 +9,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { config } from '../config.js';
+import { config, envConfig } from '../config.js';
 import { createLogger } from '../logger.js';
 
 const log = createLogger('persona:appearance');
@@ -18,6 +18,25 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** 头像再大，QQ 那边容易直接拒收。超过这个就提醒一声。 */
 const AVATAR_SOFT_LIMIT = 1024 * 1024;
+
+/**
+ * 群名片上的名字。
+ *
+ * 本地模型（Ollama）和云端 API 的能力差很多，群里只看名字分不出来，
+ * 所以在名片后面挂个「（本地模型）」，让人一眼知道现在是谁在回话。
+ *
+ * 幂等：先剥掉结尾的旧括号后缀再加，重复调用不会变成
+ * 「大肥鱼（本地模型）（本地模型）」。
+ */
+const LOCAL_SUFFIX = '（本地模型）';
+
+export function cardNameFor(nickname, provider) {
+  if (!nickname) return nickname;
+  const base = String(nickname).replace(/（[^（）]*）\s*$/, '').trim();
+  if (!base) return nickname;
+  const p = provider ?? envConfig.provider;
+  return p === 'local' ? `${base}${LOCAL_SUFFIX}` : base;
+}
 
 /** 本地图片 → base64:// URL。读不到返回 null。 */
 function toBase64Url(file) {
@@ -43,8 +62,9 @@ function toBase64Url(file) {
  * 一个群改了别的群也会跟着变 —— 所以干脆只改名片，靠名字区分。
  */
 export async function applyGroupCardOnly({ api, groupId, selfId, identity, mode }) {
-  const nickname = mode?.nickname || identity?.nickname;
-  if (!nickname || !groupId || !selfId) return { ok: false, reason: 'missing' };
+  const base = mode?.nickname || identity?.nickname;
+  if (!base || !groupId || !selfId) return { ok: false, reason: 'missing' };
+  const nickname = cardNameFor(base);
   try {
     await api.setGroupCard(groupId, selfId, nickname);
     log.info(`群 ${groupId} 名片 → ${nickname}`);
@@ -113,11 +133,14 @@ export async function applyIdentityAppearance({ api, identity, mode, selfId, thr
     const gap =
       throttleMs != null ? Math.max(0, Number(throttleMs) || 0) : Math.max(0, Number(cfg.throttleMs) || 1500);
 
+    // 本地模型的名片后面挂「（本地模型）」，云端保持原名
+    const cardName = cardNameFor(nickname);
+
     for (const g of groups) {
       const gid = g?.group_id;
       if (!gid) continue;
       try {
-        await api.setGroupCard(gid, selfId, nickname);
+        await api.setGroupCard(gid, selfId, cardName);
         out.cards += 1;
       } catch (err) {
         out.failed += 1;
@@ -127,7 +150,7 @@ export async function applyIdentityAppearance({ api, identity, mode, selfId, thr
     }
 
     if (groups.length) {
-      log.info(`群名片 → ${nickname}（成功 ${out.cards}，失败 ${out.failed}）`);
+      log.info(`群名片 → ${cardName}（成功 ${out.cards}，失败 ${out.failed}）`);
     }
   }
 

@@ -56,7 +56,8 @@ const rel = (p) => path.relative(ROOT, p).replace(/\\/g, '/');
 function isPrivate(relPath) {
   if (PRIVATE_FILES.includes(relPath)) return true;
   // .env 的所有变体（.env.bak、.env.production ...）一律不公开，里面可能有密钥
-  if (/^\.env(\.|$)/.test(relPath)) return true;
+  // .env.test 不含密钥（只有 provider 和模型名），测试要用，放行
+  if (/^\.env(\.|$)/.test(relPath) && relPath !== '.env.test') return true;
   if (JUNK.some((re) => re.test(relPath))) return true;
   const parts = relPath.split('/');
   return parts.some((seg) => PRIVATE_DIRS.includes(seg));
