@@ -44,6 +44,18 @@ try {
 } catch { }
 
 function Hr { Write-Host ("  " + ("=" * 60)) -ForegroundColor DarkGray }
+
+# 安全地取 python -c 的输出：多行时取第一行有效内容，避免 ToString() 变成 System.Object[]
+function Get-PyOut($py, [string]$code) {
+    try {
+        $out = & $py -c $code 2>&1
+        $lines = @($out | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ -ne '' })
+        if ($lines.Count -eq 0) { return '' }
+        return $lines[0]
+    } catch {
+        return ''
+    }
+}
 function Section($t) { Write-Host ""; Write-Host "  【$t】" -ForegroundColor Cyan }
 function Ok($m)   { Write-Host "    ✓ $m" -ForegroundColor Green }
 function Bad($m)  { Write-Host "    ✗ $m" -ForegroundColor Red }
@@ -182,15 +194,15 @@ if (-not $hasTorch) {
     Info "  pip install torch --index-url https://download.pytorch.org/whl/cu121"
     $problems++
 } else {
-    $torchInfo = (& $python -c "import torch; print(torch.__version__)" 2>&1).ToString().Trim()
+    $torchInfo = Get-PyOut $python "import torch; print(torch.__version__)"
     Write-Host "    PyTorch: $torchInfo"
 
-    $cudaProbe = (& $python -c "import torch; print(torch.cuda.is_available())" 2>&1).ToString().Trim()
+    $cudaProbe = Get-PyOut $python "import torch; print(torch.cuda.is_available())"
     if ($cudaProbe -eq "True") {
         Ok "CUDA 可用"
-        $gpuName = (& $python -c "import torch; print(torch.cuda.get_device_name(0))" 2>&1).ToString().Trim()
-        $vram = (& $python -c "import torch; print(round(torch.cuda.get_device_properties(0).total_memory/1024**3,1))" 2>&1).ToString().Trim()
-        $cudaVer = (& $python -c "import torch; print(torch.version.cuda)" 2>&1).ToString().Trim()
+        $gpuName = Get-PyOut $python "import torch; print(torch.cuda.get_device_name(0))"
+        $vram = Get-PyOut $python "import torch; print(round(torch.cuda.get_device_properties(0).total_memory/1024**3,1))"
+        $cudaVer = Get-PyOut $python "import torch; print(torch.version.cuda)"
         Write-Host "    显卡: $gpuName"
         Write-Host "    显存: $vram GB"
         Write-Host "    CUDA: $cudaVer"
@@ -255,6 +267,13 @@ try {
 # ============================================================
 # 5. 训练包完整性
 # ============================================================
+# 如果这个目录是「环境包」（没有 train\run.ps1），就跳过训练包检查
+$isEnvPack = -not (Test-Path (Join-Path $PSScriptRoot "train\run.ps1"))
+if ($isEnvPack) {
+    Section "包类型"
+    Ok "这是【环境包】（不含训练脚本和数据）"
+    Info "训练相关文件在 amiya-train 包里，自检时不用管"
+} else {
 Section "训练包完整性"
 
 $checks = @(
@@ -311,6 +330,7 @@ if (Test-Path $storyDir) {
     Ok "剧情素材 $n 个文件"
 } else {
     Warn2 "没有 story\ 目录（不影响训练，数据已经准备好了）"
+}
 }
 
 # ============================================================

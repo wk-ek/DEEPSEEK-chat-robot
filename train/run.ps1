@@ -479,9 +479,12 @@ try {
 function Invoke-Lf {
     param([string[]]$LfArgs)
 
-    if ($LfExe) {
-        # 用 cmd /c 包装：pip 生成的 .exe wrapper 直接调用时可能不输出到控制台，
-        # 走 cmd 能同时拿到 stdout 和 stderr
+    # 优先用 train\lf.py（不依赖 pip install -e，也不需要 llamafactory-cli.exe）
+    $lfPy = Join-Path $ScriptDir "lf.py"
+    if (Test-Path $lfPy) {
+        Write-Host "    命令: python lf.py $($LfArgs -join ' ')" -ForegroundColor DarkGray
+        & $python $lfPy @LfArgs 2>&1 | ForEach-Object { Write-Host $_ }
+    } elseif ($LfExe) {
         $quoted = ($LfArgs | ForEach-Object {
             if ($_ -match '\s') { '"' + $_ + '"' } else { $_ }
         }) -join ' '

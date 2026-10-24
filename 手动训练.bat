@@ -12,7 +12,8 @@ echo   这个脚本直接调用 llamafactory-cli，
 echo   能看到真实的报错信息（run.ps1 里可能被吞掉）。
 echo.
 
-set "LF=C:\Program Files\Python312\Scripts\llamafactory-cli.exe"
+set "PY=C:\Program Files\Python312\python.exe"
+set "LF=%~dp0train\lf.py"
 
 if not exist "%LF%" (
     echo   [错误] 找不到:
@@ -32,7 +33,7 @@ echo.
 
 if not exist "output" mkdir "output"
 
-"%LF%" train "train\stage1-wisdom.yaml" dataset_dir="data" output_dir="output\stage1-wisdom" bf16=false fp16=true
+"%PY%" "train\lf.py" train "train\stage1-wisdom.yaml" dataset_dir="data" output_dir="output\stage1-wisdom" bf16=false fp16=true
 
 set "RC=%ERRORLEVEL%"
 

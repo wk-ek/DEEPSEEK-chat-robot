@@ -59,6 +59,7 @@ function Section($t) { Write-Host ""; Write-Host "  【$t】" -ForegroundColor C
 function Ok($m)   { Write-Host "    ✓ $m" -ForegroundColor Green }
 function Bad($m)  { Write-Host "    ✗ $m" -ForegroundColor Red }
 function Warn2($m){ Write-Host "    ! $m" -ForegroundColor Yellow }
+function Warn($m) { Write-Host "    ! $m" -ForegroundColor Yellow }
 function Info($m) { Write-Host "      $m" -ForegroundColor DarkGray }
 function Step($m) { Write-Host "    → $m" -ForegroundColor White }
 
@@ -72,6 +73,28 @@ function Get-IsAdmin {
         $p = New-Object System.Security.Principal.WindowsPrincipal($id)
         return $p.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
     } catch { return $false }
+}
+
+# 安全提取 python -c 的输出：多行时找匹配模式的那一行，避免 System.Object[]
+function Get-PyOut {
+    param($py, [string]$code, [string]$pattern = '')
+    try {
+        if ($py.Args -and $py.Args.Count -gt 0) {
+            $out = & $py.Cmd @($py.Args) -c $code 2>&1
+        } else {
+            $out = & $py.Cmd -c $code 2>&1
+        }
+        $lines = @($out | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ -ne '' })
+        if ($lines.Count -eq 0) { return '' }
+        if ($pattern) {
+            $hit = $lines | Where-Object { $_ -match $pattern } | Select-Object -First 1
+            if ($hit) { return $hit }
+            return ''
+        }
+        return $lines[0]
+    } catch {
+        return ''
+    }
 }
 
 function Invoke-Python($py, [string[]]$PyArgs) {
@@ -254,6 +277,31 @@ function Install-PyTorch($py) {
 
     Ok "将安装 PyTorch（$cuda）"
 
+    # ★ 优先用包内自带的 torch wheel（完全不需要联网）
+    $torchWheelDir = Join-Path $PSScriptRoot "train\vendor\torch-wheels"
+    if (Test-Path $torchWheelDir) {
+        $torchWhl = Get-ChildItem $torchWheelDir -Filter "torch-*.whl" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($torchWhl) {
+            $cnt = (Get-ChildItem $torchWheelDir -Filter "*.whl" | Measure-Object).Count
+            $mb = [math]::Round(((Get-ChildItem $torchWheelDir -Filter "*.whl" | Measure-Object -Sum Length).Sum / 1MB), 0)
+            Ok "使用包内离线 PyTorch：$($torchWhl.Name)"
+            Info "$cnt 个 wheel，$mb MB，完全不需要联网"
+
+            $swT = [System.Diagnostics.Stopwatch]::StartNew()
+            $tLines = & $py.Cmd -m pip install --no-index --find-links $torchWheelDir --progress-bar off torch 2>&1
+            $rc = $LASTEXITCODE
+            $swT.Stop()
+            $tLines | ForEach-Object { Write-Host "    $_" }
+            Info "耗时 $([math]::Round($swT.Elapsed.TotalSeconds)) 秒"
+
+            if ($rc -eq 0) {
+                Ok "PyTorch 安装完成"
+                return $true
+            }
+            Warn "离线安装失败，退回联网安装"
+        }
+    }
+
     $indexUrl = "https://download.pytorch.org/whl/$cuda"
     Step "pip install torch torchvision torchaudio --index-url $indexUrl"
     Info "这个包约 2.5 GB，看网速可能要 5-20 分钟"
@@ -358,16 +406,16 @@ if (-not $PythonOnly) {
         $torchVer = ""
         $cudaOk = $false
         try {
-            $torchVer = (Invoke-Python $py @("-c", 'import torch; print(torch.__version__)') 2>&1).ToString().Trim()
+            $torchVer = Get-PyOut $py "import torch; print(torch.__version__)" "^\d+\.\d+"
             $hasTorch = ($LASTEXITCODE -eq 0 -and $torchVer -match '^\d')
         } catch { }
 
         if ($hasTorch) {
             Write-Host "    当前 PyTorch：$torchVer"
-            $cudaOk = ((Invoke-Python $py @("-c", 'import torch; print(torch.cuda.is_available())') 2>&1).ToString().Trim() -eq "True")
+            $cudaOk = ((Get-PyOut $py "import torch; print(torch.cuda.is_available())" "^(True|False)$") -eq "True")
             if ($cudaOk) {
-                $cudaVer = (Invoke-Python $py @("-c", 'import torch; print(torch.version.cuda)') 2>&1).ToString().Trim()
-                $gpuName = (Invoke-Python $py @("-c", 'import torch; print(torch.cuda.get_device_name(0))') 2>&1).ToString().Trim()
+                $cudaVer = Get-PyOut $py "import torch; print(torch.version.cuda)" "^\d+\.\d+"
+                $gpuName = Get-PyOut $py "import torch; print(torch.cuda.get_device_name(0))"
                 Ok "CUDA 可用（$cudaVer）"
                 Write-Host "    显卡：$gpuName"
             } else {
@@ -410,13 +458,13 @@ $py = Find-Python
 if ($py) {
     Write-Host "    Python: $($py.Version)"
     try {
-        $tv = (Invoke-Python $py @("-c", 'import torch; print(torch.__version__)') 2>&1).ToString().Trim()
+        $tv = Get-PyOut $py "import torch; print(torch.__version__)" "^\d+\.\d+"
         if ($tv -match '^\d') {
             Write-Host "    PyTorch: $tv"
-            $cuda = (Invoke-Python $py @("-c", 'import torch; print(torch.cuda.is_available())') 2>&1).ToString().Trim()
+            $cuda = Get-PyOut $py "import torch; print(torch.cuda.is_available())" "^(True|False)$"
             if ($cuda -eq "True") {
-                $gpu = (Invoke-Python $py @("-c", 'import torch; print(torch.cuda.get_device_name(0))') 2>&1).ToString().Trim()
-                $vram = (Invoke-Python $py @("-c", 'import torch; print(round(torch.cuda.get_device_properties(0).total_memory/1024**3,1))') 2>&1).ToString().Trim()
+                $gpu = Get-PyOut $py "import torch; print(torch.cuda.get_device_name(0))"
+                $vram = Get-PyOut $py "import torch; print(round(torch.cuda.get_device_properties(0).total_memory/1024**3,1))" "^\d"
                 Ok "CUDA 可用"
                 Write-Host "    显卡: $gpu  ($vram GB)"
                 if ([double]$vram -lt 6) {
