@@ -254,6 +254,31 @@ function Install-PyTorch($py) {
 
     Ok "将安装 PyTorch（$cuda）"
 
+    # ★ 优先用包内自带的 torch wheel（完全不需要联网）
+    $torchWheelDir = Join-Path $PSScriptRoot "train\vendor\torch-wheels"
+    if (Test-Path $torchWheelDir) {
+        $torchWhl = Get-ChildItem $torchWheelDir -Filter "torch-*.whl" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($torchWhl) {
+            $cnt = (Get-ChildItem $torchWheelDir -Filter "*.whl" | Measure-Object).Count
+            $mb = [math]::Round(((Get-ChildItem $torchWheelDir -Filter "*.whl" | Measure-Object -Sum Length).Sum / 1MB), 0)
+            Ok "使用包内离线 PyTorch：$($torchWhl.Name)"
+            Info "$cnt 个 wheel，$mb MB，完全不需要联网"
+
+            $swT = [System.Diagnostics.Stopwatch]::StartNew()
+            $tLines = & $py.Cmd -m pip install --no-index --find-links $torchWheelDir --progress-bar off torch 2>&1
+            $rc = $LASTEXITCODE
+            $swT.Stop()
+            $tLines | ForEach-Object { Write-Host "    $_" }
+            Info "耗时 $([math]::Round($swT.Elapsed.TotalSeconds)) 秒"
+
+            if ($rc -eq 0) {
+                Ok "PyTorch 安装完成"
+                return $true
+            }
+            Warn "离线安装失败，退回联网安装"
+        }
+    }
+
     $indexUrl = "https://download.pytorch.org/whl/$cuda"
     Step "pip install torch torchvision torchaudio --index-url $indexUrl"
     Info "这个包约 2.5 GB，看网速可能要 5-20 分钟"

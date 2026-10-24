@@ -328,24 +328,18 @@ if (-not $lfOk) {
                 Info "如果报某个包找不到：该包没打进 wheels，把日志发我补上"
             }
         } else {
-            Warn "包内没有 vendor\wheels（或文件太少），只能联网装"
-            $deps = @(
-                "transformers>=4.55.0,<=5.8.0",
-                "datasets>=2.16.0,<=4.0.0",
-                "accelerate>=1.3.0,<=1.11.0",
-                "peft>=0.18.0,<=0.18.1",
-                "trl>=0.18.0,<=0.24.0",
-                "torchdata>=0.10.0,<=0.11.0",
-                "tyro", "einops", "numpy", "pandas", "scipy",
-                "tiktoken", "hf-transfer", "safetensors", "fire", "omegaconf",
-                "packaging", "protobuf", "pyyaml", "pydantic", "matplotlib", "setuptools"
-            )
-            Say "装 $($deps.Count) 个依赖包（联网）"
-            & $python -m pip install @deps -q -i https://pypi.tuna.tsinghua.edu.cn/simple --timeout 300 --retries 3
-            if ($LASTEXITCODE -ne 0) {
-                Warn "清华源失败，换阿里云"
-                & $python -m pip install @deps -q -i https://mirrors.aliyun.com/pypi/simple --timeout 300 --retries 3
-            }
+            # 训练包不含 vendor（依赖在环境包里），直接提示
+            Write-Host ""
+            Bad "缺少训练依赖，而且这个包里没有离线 wheel"
+            Write-Host ""
+            Write-Host "  这个包是【训练包】，只含模型和数据。" -ForegroundColor Yellow
+            Write-Host "  依赖在【环境包】里，请先： " -ForegroundColor Yellow
+            Write-Host "    1. 上传并解压 amiya-env-*.zip" -ForegroundColor White
+            Write-Host "    2. 双击 安装环境.bat   （装 PyTorch）" -ForegroundColor White
+            Write-Host "    3. 双击 修复安装.bat   （装 LLaMA-Factory 和依赖）" -ForegroundColor White
+            Write-Host "  然后再回来双击 开始训练.bat" -ForegroundColor White
+            Write-Host ""
+            Die "依赖未安装"
         }
 
         try {
