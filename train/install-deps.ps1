@@ -32,8 +32,12 @@ if (-not (Test-Path $Py)) {
     exit 1
 }
 
-$wheels = Get-ChildItem $WheelsDir -Filter *.whl | Sort-Object Name
-Write-Host "  找到 $($wheels.Count) 个 wheel" -ForegroundColor DarkGray
+# 也收 .tar.gz（jieba 只有源码包，纯 Python 不需要编译）
+$wheels = @()
+$wheels += Get-ChildItem $WheelsDir -Filter *.whl -ErrorAction SilentlyContinue
+$wheels += Get-ChildItem $WheelsDir -Filter *.tar.gz -ErrorAction SilentlyContinue
+$wheels = $wheels | Sort-Object Name
+Write-Host "  找到 $($wheels.Count) 个包（wheel + sdist）" -ForegroundColor DarkGray
 Write-Host ""
 
 $failed = @()

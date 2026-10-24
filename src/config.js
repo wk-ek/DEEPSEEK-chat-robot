@@ -85,6 +85,8 @@ export const envConfig = {
   onebotWsUrl: env.ONEBOT_WS_URL || 'ws://127.0.0.1:3001',
   onebotToken: env.ONEBOT_ACCESS_TOKEN || '',
   provider: (env.LLM_PROVIDER || 'deepseek').toLowerCase(),
+  // 本地模型首次加载要几十秒，推理也比云端慢，超时给宽一点
+  llmTimeout: Number(env.LLM_TIMEOUT || (env.LLM_PROVIDER === 'local' ? 180000 : 90000)),
   logLevel: (env.LOG_LEVEL || 'info').toLowerCase(),
 };
 

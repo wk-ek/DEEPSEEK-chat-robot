@@ -1,6 +1,6 @@
 # ---- 密钥：绝不提交 ----
-.env
-.env.local
+
+
 *.pem
 *.key
 
@@ -67,3 +67,8 @@ node_modules/
 Thumbs.db
 .DS_Store
 desktop.ini
+
+# 环境变量文件（含密钥，绝不入库）
+.env
+.env.*
+!.env.example

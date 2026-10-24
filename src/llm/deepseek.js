@@ -14,6 +14,24 @@ export function estimateTokens(text = '') {
   return Math.ceil(cjk * 1.6 + other / 4);
 }
 
+/**
+ * 清理模型输出里的特殊 token。
+ *
+ * Qwen3 用的是 reasoning template，输出会带 <think></think> 和 <tool_call></tool_call>。
+ * 训练数据里每条 assistant 前面都插了空的 <think>，所以模型学会了这个模式。
+ * 这些标签不能直接发到 QQ 里，必须剥掉。
+ */
+export function sanitizeReply(text) {
+  if (!text) return '';
+  let t = text;
+  t = t.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  t = t.replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, '');
+  t = t.replace(/<\/?(?:think|tool_call|tool_response)>/gi, '');
+  t = t.replace(/<\|im_start\|>/g, '');
+  t = t.replace(/<\|im_end\|>/g, '');
+  return t.trim();
+}
+
 function mockReply(messages) {
   const last = [...messages].reverse().find((m) => m.role === 'user')?.content || '';
   const snippet = last.replace(/\s+/g, ' ').slice(0, 30);
@@ -36,7 +54,7 @@ export async function chat({
   temperature = envConfig.temperature,
   maxTokens = 800,
   jsonMode = false,
-  timeoutMs = 90000,
+  timeoutMs = envConfig.llmTimeout ?? 90000,
   retries = 2,
   tag = 'chat',
 } = {}) {
@@ -92,7 +110,7 @@ export async function chat({
       log.debug(
         `${tag} ok ${Date.now() - started}ms tokens=${json?.usage?.total_tokens ?? '?'}`
       );
-      return content.trim();
+      return sanitizeReply(content);
     } catch (err) {
       if (err instanceof LLMError) throw err;
       const timedOut = err.name === 'AbortError';

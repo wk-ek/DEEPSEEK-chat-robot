@@ -61,6 +61,32 @@ goto waitloop
 echo.
 echo        [成功] NapCat 已就绪（端口 3001 已监听）
 echo.
+echo  [2.5/3] 检查模型服务...
+echo.
+findstr /b /c:"LLM_PROVIDER=local" .env >nul 2>&1
+if errorlevel 1 (
+    echo        云端 API 模式，跳过
+) else (
+    netstat -ano ^| findstr ":11434" ^| findstr "LISTENING" >nul 2>&1
+    if not errorlevel 1 (
+        echo        [OK] Ollama 已在运行
+    ) else (
+        echo        本地模型模式，正在启动 Ollama...
+        set "OLLAMA_MODELS=F:\ollama\models"
+        set "OLLAMA_HOST=127.0.0.1:11434"
+        start "Ollama" /min "F:\ollama\ollama.exe" serve
+        echo        等 10 秒让它就绪...
+        timeout /t 10 /nobreak >nul
+        netstat -ano ^| findstr ":11434" ^| findstr "LISTENING" >nul 2>&1
+        if errorlevel 1 (
+            echo        [警告] Ollama 没起来，机器人会连不上模型
+            echo               手动启动：双击 启动Ollama.bat
+        ) else (
+            echo        [OK] Ollama 已就绪
+        )
+    )
+)
+echo.
 echo  [3/3] 启动机器人...
 echo.
 echo        机器人日志会直接显示在下面。
@@ -81,6 +107,13 @@ echo.
 echo   NapCat 那个窗口还在运行，如需彻底关闭请手动关掉。
 echo.
 goto :end
+
+:otimeout
+echo.
+echo        [警告] Ollama 60 秒没起来，机器人可能连不上模型
+echo               手动启动：双击 启动Ollama.bat
+echo.
+goto :timeout
 
 :timeout
 echo.
