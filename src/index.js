@@ -94,11 +94,31 @@ async function main() {
 
   banner();
 
-  if (envConfig.provider !== 'mock' && !envConfig.deepseekKey) {
+  if (envConfig.provider !== 'mock' && envConfig.provider !== 'local' && !envConfig.deepseekKey) {
     log.warn('未配置 DEEPSEEK_API_KEY —— 收到消息时会报错。请改 .env，或临时设 LLM_PROVIDER=mock 先跑通链路。');
   }
 
   getDb();
+
+  // 本地模型预热。
+  // 为什么需要：Ollama 加载完权重后第一次推理，KV cache 是空的，
+  // Q4 量化的模型在这个状态下容易蹦出英文垃圾 token（实测过
+  // "MessageLookup" 这种）。先空跑一次，后面就干净了。
+  if (envConfig.provider === 'local') {
+    try {
+      const { chat } = await import('./llm/deepseek.js');
+      const t0 = Date.now();
+      log.info('预热本地模型（首次加载需要几秒）…');
+      await chat({
+        messages: [{ role: 'user', content: '在吗' }],
+        maxTokens: 8,
+        tag: 'warmup',
+      });
+      log.info(`预热完成（${Date.now() - t0}ms）`);
+    } catch (err) {
+      log.warn(`预热失败：${err.message} —— 第一条回复可能会慢或带杂字`);
+    }
+  }
 
   // 明确打印启动时用的是谁 —— 上次关窗口时如果停在阿米娅，这里就该显示阿米娅
   try {

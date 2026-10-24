@@ -62,8 +62,11 @@ export async function chat({
     await sleep(200 + Math.random() * 300);
     return mockReply(messages);
   }
-  if (!envConfig.deepseekKey) {
-    throw new LLMError('未配置 DEEPSEEK_API_KEY，请在 .env 里填上');
+  // 本地模型（Ollama）不校验 key，云端才需要。
+  // Ollama 的 OpenAI 兼容端点即使传空 Bearer 也能用，但有些版本要个占位值。
+  const isLocal = envConfig.provider === 'local';
+  if (!isLocal && !envConfig.deepseekKey) {
+    throw new LLMError('未配置 DEEPSEEK_API_KEY，请在 .env 里填上（用本地模型就把 LLM_PROVIDER 设成 local）');
   }
 
   const url = `${envConfig.deepseekBaseUrl}/chat/completions`;
@@ -86,7 +89,8 @@ export async function chat({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${envConfig.deepseekKey}`,
+          // 本地 Ollama 不需要真 key，但带上占位值更兼容
+          Authorization: `Bearer ${envConfig.deepseekKey || 'ollama'}`,
         },
         body: JSON.stringify(body),
         signal: ctrl.signal,

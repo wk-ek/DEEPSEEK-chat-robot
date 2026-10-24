@@ -20,3 +20,19 @@
 [90m21:19:33[0m [36mINFO [0m [90m[onebot][0m 3s 后重连（第 2 次）
 [90m21:19:36[0m [36mINFO [0m [90m[onebot][0m 连接 ws://127.0.0.1:3001
 [90m21:19:36[0m [36mINFO [0m [90m[onebot][0m 5s 后重连（第 3 次）
+[90m21:19:41[0m [36mINFO [0m [90m[onebot][0m 连接 ws://127.0.0.1:3001
+[90m21:19:41[0m [36mINFO [0m [90m[onebot][0m 8s 后重连（第 4 次）
+[90m21:19:49[0m [36mINFO [0m [90m[onebot][0m 连接 ws://127.0.0.1:3001
+[90m21:19:49[0m [36mINFO [0m [90m[onebot][0m 14s 后重连（第 5 次）
+[90m21:20:03[0m [36mINFO [0m [90m[onebot][0m 连接 ws://127.0.0.1:3001
+[90m21:20:03[0m [36mINFO [0m [90m[onebot][0m 已连接到 NapCat / OneBot 服务
+[90m21:20:03[0m [36mINFO [0m [90m[onebot][0m 生命周期：connect，self_id=2034919973
+[90m21:20:03[0m [36mINFO [0m [90m[main][0m 登录账号：大肥鱼 Robot (2034919973)
+[90m21:20:03[0m [36mINFO [0m [90m[proactive][0m 主动发言未开启（config.proactive.enabled = false）
+[90m21:20:47[0m [36mINFO [0m [90m[onebot][0m 2s 后重连（第 1 次）
+[90m21:20:49[0m [36mINFO [0m [90m[onebot][0m 连接 ws://127.0.0.1:3001
+[90m21:20:49[0m [36mINFO [0m [90m[onebot][0m 3s 后重连（第 2 次）
+[90m21:20:52[0m [36mINFO [0m [90m[onebot][0m 连接 ws://127.0.0.1:3001
+[90m21:20:52[0m [36mINFO [0m [90m[onebot][0m 5s 后重连（第 3 次）
+[90m21:20:57[0m [36mINFO [0m [90m[onebot][0m 连接 ws://127.0.0.1:3001
+[90m21:20:57[0m [36mINFO [0m [90m[onebot][0m 8s 后重连（第 4 次）
