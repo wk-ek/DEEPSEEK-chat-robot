@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { config, envConfig, PATHS } from './config.js';
 import { createLogger, colors } from './logger.js';
 import { OneBotClient } from './onebot/client.js';
@@ -9,6 +11,64 @@ import { kvGet } from './memory/store.js';
 import { normalizeIdentities, findIdentity, defaultIdentity } from './persona/identities.js';
 
 const log = createLogger('main');
+
+/**
+ * 单实例锁。
+ *
+ * 为什么需要：双击了两次 一键启动.bat，或者手动 node 启动过一次，
+ * 会有两个进程同时连着同一个 NapCat，每条消息被处理两次，群里就看到
+ * 机器人回两遍。这个锁让第二个进程直接退出。
+ */
+const LOCK_FILE = path.join(PATHS.data || 'data', 'bot.lock');
+
+function isAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function acquireLock() {
+  try {
+    fs.mkdirSync(path.dirname(LOCK_FILE), { recursive: true });
+    if (fs.existsSync(LOCK_FILE)) {
+      const raw = fs.readFileSync(LOCK_FILE, 'utf8').trim();
+      const oldPid = parseInt(raw, 10);
+      if (Number.isInteger(oldPid) && oldPid !== process.pid && isAlive(oldPid)) {
+        console.error('');
+        console.error(`  ${colors.error}已经有一个机器人在运行了（PID ${oldPid}）${colors.reset}`);
+        console.error('');
+        console.error('  两个实例会同时接收同一条消息，群里就会看到回两遍。');
+        console.error('  先关掉那个窗口，或者：');
+        console.error(`    taskkill /f /pid ${oldPid}`);
+        console.error('');
+        return false;
+      }
+      // 残留的锁（上次非正常退出），清掉
+      fs.unlinkSync(LOCK_FILE);
+    }
+    fs.writeFileSync(LOCK_FILE, String(process.pid), 'utf8');
+
+    const cleanup = () => {
+      try {
+        if (fs.existsSync(LOCK_FILE)) {
+          const cur = parseInt(fs.readFileSync(LOCK_FILE, 'utf8').trim(), 10);
+          if (cur === process.pid) fs.unlinkSync(LOCK_FILE);
+        }
+      } catch { /* 忽略 */ }
+    };
+    process.on('exit', cleanup);
+    process.on('SIGINT', () => { cleanup(); process.exit(0); });
+    process.on('SIGTERM', () => { cleanup(); process.exit(0); });
+    return true;
+  } catch (err) {
+    // 锁文件写不了不该阻止启动
+    console.error(`  [warn] 单实例锁创建失败：${err.message}`);
+    return true;
+  }
+}
 
 function banner() {
   const mode = envConfig.provider === 'mock' ? 'mock（假回复）' : envConfig.deepseekModel;
@@ -28,6 +88,10 @@ function banner() {
 }
 
 async function main() {
+  if (!acquireLock()) {
+    process.exit(1);
+  }
+
   banner();
 
   if (envConfig.provider !== 'mock' && !envConfig.deepseekKey) {
