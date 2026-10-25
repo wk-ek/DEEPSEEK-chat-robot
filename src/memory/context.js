@@ -1,9 +1,11 @@
+import fs from 'node:fs';
 import { config } from '../config.js';
 import { recentMessages, recallMemories } from './store.js';
 import { getOrCreateUser } from '../persona/state.js';
 import { buildSystemPrompt } from '../llm/prompt.js';
 import { loadProfile, renderLitePersona } from '../llm/lite-persona.js';
 import { recallLore, defaultLorePath } from './lore.js';
+import { buildIndex, search as kbSearch, defaultKbPath } from './kb.js';
 
 /** 会话键：私聊按人，群聊按群。 */
 export function scopeOf({ type, userId, groupId }) {
@@ -82,6 +84,21 @@ export function assembleContext({
     }
   }
 
+  // ---- 知识库检索（Stage 1 数据当数据库）----
+  // 只在配了 liteProfile 的人格上启用，大肥鱼这种原创人格不该知道明日方舟设定
+  let kbHits = [];
+  if (identity?.liteProfile) {
+    try {
+      const kbPath = defaultKbPath();
+      if (fs.existsSync(kbPath)) {
+        buildIndex(kbPath);
+        kbHits = kbSearch(userText, { topK: 2, minScore: 0.5 });
+      }
+    } catch (err) {
+      // 检索失败不该影响正常回复
+    }
+  }
+
   const system = buildSystemPrompt({
     state,
     memories,
@@ -91,6 +108,7 @@ export function assembleContext({
     stickerDirective,
     angerHint,
     lite,
+    kbHits,
   });
 
   const content = contentOverride || (isGroup ? `${senderName}: ${userText}` : userText);

@@ -41,7 +41,7 @@ export function personaText(file = config.personaFile) {
  *   mode.file            —— 她此刻怎么说话（表现），可选
  * 状态与记忆是「此刻的补充」，说话规则放最后（模型对末尾更敏感）。
  */
-export function buildSystemPrompt({ state, memories, scope, identity, mode, stickerDirective, angerHint, lite }) {
+export function buildSystemPrompt({ state, memories, scope, identity, mode, stickerDirective, angerHint, lite, kbHits }) {
   const name = identity?.label || config.botName;
   const tier = favorTier(state?.favor ?? config.emotion.initialFavor);
   const mood = MOOD_LABELS[state?.mood] || state?.mood || '平静';
@@ -53,7 +53,7 @@ export function buildSystemPrompt({ state, memories, scope, identity, mode, stic
   if (lite?.text) {
     parts.push(lite.text);
     if (lite.loreCount > 0) {
-      parts.push('（以上是你的记忆，不是要背的资料。聊到相关话题时自然回忆，不要主动复述、不要像念年表。不知道就说不知道。）');
+      parts.push('（以上是你记得的事。平时不用主动提，别人问起就照实说。）');
     }
   } else {
     const baseFile = identity?.personaFile || config.personaFile;
@@ -68,6 +68,7 @@ export function buildSystemPrompt({ state, memories, scope, identity, mode, stic
       );
     }
   }
+
 
   // 子人格是一次「换装」，不换人：明确告诉模型以这一节为准，压住底子里的冲突描述
   if (mode?.file) {
@@ -123,6 +124,19 @@ export function buildSystemPrompt({ state, memories, scope, identity, mode, stic
     parts.push(`【当前人格的硬要求】\n${mode.promptNote}`);
   }
 
+
+    // ---- 知识库检索结果 ----
+    // Stage 1 的训练数据当数据库，查到的是原文；模型只负责用阿米娅的
+    // 语气把它讲出来。这样知识不会幻觉，也不需要模型把 2045 条档案全背下来。
+    if (Array.isArray(kbHits) && kbHits.length > 0) {
+      const kbLines = kbHits.map((h) => `· ${h.a}`).join(' ');
+      parts.push(
+        `【你查到的记录】\n${kbLines}\n\n` +
+          `上面是从资料里翻出来的原始记录。用你自己的话把它讲给对方听——` +
+          `像在聊天，不是念档案。数字和事实照实说，别编；` +
+          `不确定的部分就说记不清了。可以只说最相关的那一两句，不用全讲。`
+      );
+    }
   // 放在最后：模型对提示词末尾更敏感，表情才容易真的用上
   if (config.stickers?.enabled && config.stickers.list) {
     const keys = stickerKeysFor({ mode, identity });
