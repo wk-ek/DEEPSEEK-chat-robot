@@ -113,5 +113,5 @@ export function assembleContext({
 
   const content = contentOverride || (isGroup ? `${senderName}: ${userText}` : userText);
 
-  return { system, history, content, memories, state };
+  return { system, history, content, memories, state, kbHits };
 }

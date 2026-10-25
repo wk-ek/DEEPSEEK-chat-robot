@@ -4,7 +4,8 @@ import { createLogger } from '../logger.js';
 import { extractText, isAt, stripAt, mentionsName } from '../onebot/parse.js';
 import { assembleContext, scopeOf } from '../memory/context.js';
 import { buildMessages, buildIntrospectMessages } from '../llm/prompt.js';
-import { chat, parseJsonLoose, estimateTokens } from '../llm/deepseek.js';
+import { parseJsonLoose, estimateTokens } from '../llm/deepseek.js';
+import { chat } from '../llm/router.js';
 import { checkSensitive, deflectReply } from '../llm/moderation.js';
 import { searchWeb, formatResults, fetchWeather, extractCity, cleanQuery } from '../search/search.js';
 import { checkBudget, addDailyUsed, getDailyUsed } from '../search/budget.js';
@@ -966,7 +967,13 @@ export class Brain {
 
     let raw;
     try {
-      raw = await chat({ messages, maxTokens: 500, tag: 'reply' });
+      raw = await chat({
+        messages,
+        maxTokens: 500,
+        tag: 'reply',
+        // 混合模式靠这个决定走本地还是云端：有检索结果说明这问题要准确知识
+        kbHits: assembled.kbHits,
+      });
     } catch (err) {
       log.error(`模型调用失败：${err.message}`);
       return;

@@ -71,7 +71,17 @@ function acquireLock() {
 }
 
 function banner() {
-  const mode = envConfig.provider === 'mock' ? 'mock（假回复）' : envConfig.deepseekModel;
+  let mode;
+  if (envConfig.provider === 'mock') {
+    mode = 'mock（假回复）';
+  } else if (envConfig.provider === 'hybrid') {
+    const cloud = envConfig.cloudApiKey ? envConfig.cloudModel : '未配 key';
+    mode = `本地 ${envConfig.localModel} + ${cloud}`;
+  } else if (envConfig.provider === 'local') {
+    mode = `${envConfig.localModel}（本地）`;
+  } else {
+    mode = envConfig.deepseekModel;
+  }
   const identities = normalizeIdentities();
   const who =
     identities.map((i) => (i.enabled ? i.label : `${i.label}(关)`)).join(' / ') || config.botName;

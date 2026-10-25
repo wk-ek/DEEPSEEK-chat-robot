@@ -49,29 +49,46 @@ function mockReply(messages) {
  * 调用一次对话补全，返回纯文本。
  * 支持重试（429/5xx/网络抖动）与超时中断。
  */
+/**
+ * 调用一次对话补全。
+ *
+ * `override` 用于混合模式指定这次走哪个后端：
+ *   { baseUrl, model, key, timeoutMs }
+ * 不传就用 .env 里的默认（单模式行为不变）。
+ */
 export async function chat({
   messages,
   temperature = envConfig.temperature,
   maxTokens = 800,
   jsonMode = false,
-  timeoutMs = envConfig.llmTimeout ?? 90000,
+  timeoutMs,
   retries = 2,
   tag = 'chat',
+  override = null,
 } = {}) {
   if (envConfig.provider === 'mock') {
     await sleep(200 + Math.random() * 300);
     return mockReply(messages);
   }
-  // 本地模型（Ollama）不校验 key，云端才需要。
-  // Ollama 的 OpenAI 兼容端点即使传空 Bearer 也能用，但有些版本要个占位值。
-  const isLocal = envConfig.provider === 'local';
-  if (!isLocal && !envConfig.deepseekKey) {
+
+  // 目标后端：override 优先，否则用全局配置
+  const target = override || {
+    baseUrl: envConfig.deepseekBaseUrl,
+    model: envConfig.deepseekModel,
+    key: envConfig.deepseekKey,
+    timeoutMs: envConfig.llmTimeout ?? 90000,
+  };
+  const effectiveTimeout = timeoutMs ?? target.timeoutMs ?? 90000;
+
+  // 云端才需要 key；本地的 Ollama 不校验（但要给个占位值，有些版本挑剔）
+  const isLocalTarget = envConfig.provider === 'local' || !target.key || target.key === 'ollama';
+  if (!isLocalTarget && !target.key) {
     throw new LLMError('未配置 DEEPSEEK_API_KEY，请在 .env 里填上（用本地模型就把 LLM_PROVIDER 设成 local）');
   }
 
-  const url = `${envConfig.deepseekBaseUrl}/chat/completions`;
+  const url = `${target.baseUrl}/chat/completions`;
   const body = {
-    model: envConfig.deepseekModel,
+    model: target.model,
     messages,
     temperature,
     max_tokens: maxTokens,
@@ -82,7 +99,7 @@ export async function chat({
   let attempt = 0;
   for (;;) {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    const timer = setTimeout(() => ctrl.abort(), effectiveTimeout);
     const started = Date.now();
     try {
       const res = await fetch(url, {
@@ -90,7 +107,7 @@ export async function chat({
         headers: {
           'Content-Type': 'application/json',
           // 本地 Ollama 不需要真 key，但带上占位值更兼容
-          Authorization: `Bearer ${envConfig.deepseekKey || 'ollama'}`,
+          Authorization: `Bearer ${target.key || 'ollama'}`,
         },
         body: JSON.stringify(body),
         signal: ctrl.signal,
@@ -106,7 +123,7 @@ export async function chat({
           await sleep(wait);
           continue;
         }
-        throw new LLMError(`DeepSeek ${res.status}: ${detail.slice(0, 300)}`);
+        throw new LLMError(`${target.model} ${res.status}: ${detail.slice(0, 300)}`);
       }
 
       const json = await res.json();
@@ -118,7 +135,7 @@ export async function chat({
     } catch (err) {
       if (err instanceof LLMError) throw err;
       const timedOut = err.name === 'AbortError';
-      const msg = timedOut ? `请求超时（${timeoutMs}ms）` : err.message;
+      const msg = timedOut ? `请求超时（${effectiveTimeout}ms）` : err.message;
       if (attempt < retries && !timedOut) {
         attempt += 1;
         const wait = 800 * attempt;

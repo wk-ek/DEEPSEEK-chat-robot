@@ -85,6 +85,28 @@ export const envConfig = {
   onebotWsUrl: env.ONEBOT_WS_URL || 'ws://127.0.0.1:3001',
   onebotToken: env.ONEBOT_ACCESS_TOKEN || '',
   provider: (env.LLM_PROVIDER || 'deepseek').toLowerCase(),
+
+  // ---- 混合模式用的两套独立配置 ----
+  // 为什么要分开：hybrid 模式下闲聊走本地（免费），只有需要准确知识时才调云端。
+  // 两边的 base_url / model / key 完全不同，混在一起会互相干扰。
+  localBaseUrl: (env.LOCAL_BASE_URL || 'http://127.0.0.1:11434/v1').replace(/\/+$/, ''),
+  localModel: env.LOCAL_MODEL || 'amiya',
+  localApiKey: env.LOCAL_API_KEY || 'ollama',
+  localTimeout: Number(env.LOCAL_TIMEOUT || 180000),
+
+  cloudBaseUrl: (env.CLOUD_BASE_URL || env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/+$/, ''),
+  cloudModel: env.CLOUD_MODEL || env.DEEPSEEK_MODEL || 'deepseek-chat',
+  cloudApiKey: env.CLOUD_API_KEY || env.DEEPSEEK_API_KEY || '',
+  cloudTimeout: Number(env.CLOUD_TIMEOUT || 90000),
+
+  // 混合模式的策略开关
+  hybrid: {
+    // 检索到知识才走云端。关掉的话就永远本地。
+    routeOnKbHit: env.HYBRID_ROUTE_ON_KB === undefined ? true : env.HYBRID_ROUTE_ON_KB !== 'false',
+    // 云端挂了要不要退回本地（一般要，不然一问知识就哑巴）
+    fallbackToLocal: env.HYBRID_FALLBACK === undefined ? true : env.HYBRID_FALLBACK !== 'false',
+  },
+
   // 本地模型首次加载要几十秒，推理也比云端慢，超时给宽一点
   llmTimeout: Number(env.LLM_TIMEOUT || (env.LLM_PROVIDER === 'local' ? 180000 : 90000)),
   logLevel: (env.LOG_LEVEL || 'info').toLowerCase(),

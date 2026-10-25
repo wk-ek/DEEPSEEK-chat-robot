@@ -1,6 +1,6 @@
 import { config } from '../config.js';
 import { createLogger } from '../logger.js';
-import { chat } from '../llm/deepseek.js';
+import { chat } from '../llm/router.js';
 import { personaText } from '../llm/prompt.js';
 import { getDb } from '../memory/db.js';
 import {

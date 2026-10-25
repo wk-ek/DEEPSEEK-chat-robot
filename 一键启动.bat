@@ -63,15 +63,20 @@ echo        [成功] NapCat 已就绪（端口 3001 已监听）
 echo.
 echo  [2.5/3] 检查模型服务...
 echo.
+set "NEED_OLLAMA=0"
 findstr /b /c:"LLM_PROVIDER=local" .env >nul 2>&1
-if errorlevel 1 (
-    echo        云端 API 模式，跳过
+if not errorlevel 1 set "NEED_OLLAMA=1"
+findstr /b /c:"LLM_PROVIDER=hybrid" .env >nul 2>&1
+if not errorlevel 1 set "NEED_OLLAMA=1"
+
+if "%NEED_OLLAMA%"=="0" (
+    echo        没有配置本地模型，跳过
 ) else (
     netstat -ano ^| findstr ":11434" ^| findstr "LISTENING" >nul 2>&1
     if not errorlevel 1 (
         echo        [OK] Ollama 已在运行
     ) else (
-        echo        本地模型模式，正在启动 Ollama...
+        echo        启动 Ollama...
         set "OLLAMA_MODELS=F:\ollama\models"
         set "OLLAMA_HOST=127.0.0.1:11434"
         start "Ollama" /min "F:\ollama\ollama.exe" serve
@@ -79,7 +84,7 @@ if errorlevel 1 (
         timeout /t 10 /nobreak >nul
         netstat -ano ^| findstr ":11434" ^| findstr "LISTENING" >nul 2>&1
         if errorlevel 1 (
-            echo        [警告] Ollama 没起来，机器人会连不上模型
+            echo        [警告] Ollama 没起来，本地模型会连不上
             echo               手动启动：双击 启动Ollama.bat
         ) else (
             echo        [OK] Ollama 已就绪
