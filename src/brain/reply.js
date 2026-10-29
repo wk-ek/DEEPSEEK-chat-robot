@@ -967,19 +967,31 @@ export class Brain {
 
     let raw;
     try {
+      // 讲故事的输出上限要高得多，不然会被砍断
+      const replyMaxTokens = assembled.intent?.type === 'story'
+        ? 2000
+        : assembled.intent?.type === 'poem'
+          ? 700
+          : 500;
+
       raw = await chat({
         messages,
-        maxTokens: 500,
+        maxTokens: replyMaxTokens,
         tag: 'reply',
-        // 混合模式靠这个决定走本地还是云端：有检索结果说明这问题要准确知识
+        // 混合模式靠这两个决定走本地还是云端：
+        //   kbHits    → 有检索结果说明这问题要准确知识
+        //   forceCloud → 讲故事/写诗，本地模型写不出来
         kbHits: assembled.kbHits,
+        forceCloud: assembled.forceCloud,
       });
     } catch (err) {
       log.error(`模型调用失败：${err.message}`);
       return;
     }
 
-    const rawReply = sanitizeReply(raw, identity?.label || config.botName);
+    // 讲故事这类任务要放宽截断上限，不然刚开个头就被砍了
+    const replyCharLimit = assembled.wantsLong ? 900 : config.reply.maxReplyChars;
+    const rawReply = sanitizeReply(raw, identity?.label || config.botName, replyCharLimit);
     let { text: reply, sticker } = extractSticker(rawReply);
 
     // 出口把关：这一段内容安不安全？

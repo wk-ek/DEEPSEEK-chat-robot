@@ -41,7 +41,7 @@ export function personaText(file = config.personaFile) {
  *   mode.file            —— 她此刻怎么说话（表现），可选
  * 状态与记忆是「此刻的补充」，说话规则放最后（模型对末尾更敏感）。
  */
-export function buildSystemPrompt({ state, memories, scope, identity, mode, stickerDirective, angerHint, lite, kbHits }) {
+export function buildSystemPrompt({ state, memories, scope, identity, mode, stickerDirective, angerHint, lite, kbHits, task }) {
   const name = identity?.label || config.botName;
   const tier = favorTier(state?.favor ?? config.emotion.initialFavor);
   const mood = MOOD_LABELS[state?.mood] || state?.mood || '平静';
@@ -108,7 +108,7 @@ export function buildSystemPrompt({ state, memories, scope, identity, mode, stic
     `【说话规则】\n` +
       `1. 只输出你要说的话本身。不要加「${name}：」前缀，不要括号里的动作描写。\n` +
       `2. 不用 markdown、列表、标题；emoji 最多一个。\n` +
-      `3. 通常 1~3 句、不超过 ${config.reply.maxReplyChars} 字。对方在讲难过的事时可以稍长，但别变成演讲。\n` +
+      `3. ${task?.allowLong ? `这次可以讲长一点（300~700 字），分段短，每段一两句。` : `通常 1~3 句、不超过 ${config.reply.maxReplyChars} 字。对方在讲难过的事时可以稍长，但别变成演讲。`}\n` +
       `4. 口语中文，像在手机上打字。不用「亲」「宝子」，不说「有什么可以帮你」。\n` +
       `5. 不要重复对方原话来表示你在听。\n` +
       `6. 不知道就说不知道，不要编造自己做过的事。\n` +
@@ -124,6 +124,35 @@ export function buildSystemPrompt({ state, memories, scope, identity, mode, stic
     parts.push(`【当前人格的硬要求】\n${mode.promptNote}`);
   }
 
+
+    // ---- 这一轮要做什么 ----
+    // 不加这块的话，她听到「讲个故事」只会应一声「好呀想听什么」，
+    // 因为说话规则里写着「1~3 句」，模型优先遵守长度限制而不是把事办完。
+    if (task?.type === 'story') {
+      parts.push(
+        `【这一轮的任务】\n` +
+          `对方要你讲故事。这次不要只应一声、不要反问想听什么——直接讲。\n` +
+          `用你熟悉的世界（泰拉、罗德岛、你认识的人），或者随便编一个。\n` +
+          `讲得有点画面感，人物有名字，有开头有结尾。分段，每段一两句。\n` +
+          `讲完就停，不要总结「故事的寓意是」这种，也不用问「还想听吗」。`
+      );
+    } else if (task?.type === 'poem') {
+      parts.push(
+        `【这一轮的任务】\n` +
+          `对方要你写点诗或词。直接写出来，不要先说明你要写什么。\n` +
+          `短一点，四到八句就够。写你想到的东西，不用凑韵脚凑得很僵。\n` +
+          `写完备一句很简单的话就行，别解释创作思路。`
+      );
+    } else if (task?.type === 'refuse') {
+      parts.push(
+        `【这一轮的任务】\n` +
+          `这件事超出你会做的范围了（写代码、翻译、做作业、查资料这类）。\n` +
+          `不要直接说「我做不到」「我不是 AI 助手」这种，也不要解释原因。\n` +
+          `用你自己的方式岔开：可以装傻说不懂这些、可以说你现在想不了这个、\n` +
+          `也可以把话题拽回他身上（问他要不要歇会儿、问他在忙什么）。\n` +
+          `一两句就够，态度自然点，别像在拒绝一个请求。`
+      );
+    }
 
     // ---- 知识库检索结果 ----
     // Stage 1 的训练数据当数据库，查到的是原文；模型只负责用阿米娅的

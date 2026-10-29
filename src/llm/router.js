@@ -43,14 +43,17 @@ export async function chat(opts = {}) {
     return rawChat(opts);
   }
 
-  const { kbHits, ...rest } = opts;
+  const { kbHits, forceCloud, ...rest } = opts;
   const hasKb = Array.isArray(kbHits) && kbHits.length > 0;
   const canCloud = Boolean(envConfig.cloudApiKey);
-  const wantCloud = envConfig.hybrid.routeOnKbHit && hasKb && canCloud;
+  // 三种情况走云端：
+  //   1. 调用方明确要求（讲故事/写诗，本地模型写不出来）
+  //   2. 检索到了知识，需要准确转述
+  const wantCloud = canCloud && (forceCloud === true || (envConfig.hybrid.routeOnKbHit && hasKb));
 
   if (wantCloud) {
     try {
-      log.info(`→ 云端（命中 ${kbHits.length} 条知识）`);
+      log.info(forceCloud ? '→ 云端（任务需要）' : `→ 云端（命中 ${kbHits?.length || 0} 条知识）`);
       return await rawChat({ ...rest, override: cloudTarget(), tag: rest.tag || 'hybrid-cloud' });
     } catch (err) {
       if (!envConfig.hybrid.fallbackToLocal) throw err;

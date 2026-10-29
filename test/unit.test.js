@@ -28,6 +28,7 @@ import {
 import { applyIdentityAppearance , cardNameFor } from '../src/persona/appearance.js';
 import { keywords } from '../src/memory/store.js';
 import { parseJsonLoose } from '../src/llm/deepseek.js';
+import { detectIntent, needsCloud, wantsLongReply } from '../src/brain/intent.js';
 
 test('解析消息段：文本 + @ + 图片', () => {
   const msg = [
@@ -538,4 +539,47 @@ test('空名字原样返回，不会变成「（本地模型）」', () => {
   assert.equal(cardNameFor('', 'local'), '');
   assert.equal(cardNameFor(null, 'local'), null);
   assert.equal(cardNameFor(undefined, 'local'), undefined);
+});
+
+// ---------------- 意图识别：该真干 vs 该糊弄 ----------------
+
+test('讲故事要识别成 story，并放宽长度、走云端', () => {
+  for (const q of ['给我讲个故事', '讲个故事哄我睡', '说个笑话吧', '你能讲点什么吗']) {
+    const it = detectIntent(q);
+    assert.equal(it.type, 'story', `「${q}」应识别为 story`);
+    assert.equal(needsCloud(it), true, `「${q}」应强制走云端`);
+    assert.equal(wantsLongReply(it), true, `「${q}」应放宽长度`);
+  }
+});
+
+test('写诗识别成 poem', () => {
+  for (const q of ['写首诗', '作一首词', '来段歌词']) {
+    assert.equal(detectIntent(q).type, 'poem', `「${q}」应识别为 poem`);
+  }
+});
+
+test('超出人格的请求要识别成 refuse', () => {
+  for (const q of [
+    '帮我写个 python 脚本',
+    '写代码',
+    '帮我翻译这句话',
+    '帮我做作业',
+    '查一下明天天气',
+    '写份简历',
+  ]) {
+    const it = detectIntent(q);
+    assert.equal(it.type, 'refuse', `「${q}」应识别为 refuse`);
+    assert.equal(needsCloud(it), false, `「${q}」不该强制走云端`);
+  }
+});
+
+test('普通聊天不受影响', () => {
+  for (const q of ['今天好累啊', '黑角是谁', '你几岁啊', '你好']) {
+    assert.equal(detectIntent(q).type, 'chat', `「${q}」应识别为 chat`);
+  }
+});
+
+test('提到代码的故事请求优先判 refuse', () => {
+  // 「给我讲个 python 代码」不是讲故事
+  assert.equal(detectIntent('给我讲个 python 代码').type, 'refuse');
 });

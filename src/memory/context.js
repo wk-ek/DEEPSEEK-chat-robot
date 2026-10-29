@@ -3,6 +3,7 @@ import { config } from '../config.js';
 import { recentMessages, recallMemories } from './store.js';
 import { getOrCreateUser } from '../persona/state.js';
 import { buildSystemPrompt } from '../llm/prompt.js';
+import { detectIntent, needsCloud, wantsLongReply } from '../brain/intent.js';
 import { loadProfile, renderLitePersona } from '../llm/lite-persona.js';
 import { recallLore, defaultLorePath } from './lore.js';
 import { buildIndex, search as kbSearch, defaultKbPath } from './kb.js';
@@ -84,6 +85,13 @@ export function assembleContext({
     }
   }
 
+  // ---- 意图识别：这一轮是要聊天、讲故事，还是该糊弄 ----
+  // 讲故事这类必须真的干活（放宽长度、走云端），
+  // 写代码这类要岔开（她不是编程助手）。
+  const intent = detectIntent(userText);
+  const wantsLong = wantsLongReply(intent);
+  const forceCloud = needsCloud(intent);
+
   // ---- 知识库检索（Stage 1 数据当数据库）----
   // 只在配了 liteProfile 的人格上启用，大肥鱼这种原创人格不该知道明日方舟设定
   let kbHits = [];
@@ -109,9 +117,10 @@ export function assembleContext({
     angerHint,
     lite,
     kbHits,
+    task: intent,
   });
 
   const content = contentOverride || (isGroup ? `${senderName}: ${userText}` : userText);
 
-  return { system, history, content, memories, state, kbHits };
+  return { system, history, content, memories, state, kbHits, intent, wantsLong, forceCloud };
 }
