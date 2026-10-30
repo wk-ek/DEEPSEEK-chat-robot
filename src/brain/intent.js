@@ -34,6 +34,24 @@ const STORY_RE = new RegExp(
   'i'
 );
 
+/**
+ * 开放式提问：这类问题该多说几句，但本地 4B 模型只会回一两句。
+ *
+ * 训练数据（Stage 2 的 4824 条）全是短对话，模型学成了「惜字如金」。
+ * 所以这类问题让它走云端，云端会真的展开讲。
+ */
+const DISCUSS_RE = new RegExp(
+  [
+    '做些什么|做点什么|平时.{0,4}(干|做)什么',
+    '(是|算)什么样的人|怎么看|觉得.{0,6}(怎么样|如何)',
+    '为什么|怎么会|是怎么回事',
+    '聊聊|说一说|讲讲.{0,4}(你的|你)|跟我说说',
+    '(有|有什么)(想法|看法|感受|感觉)',
+    '(你|您).{0,4}(觉得|认为)',
+  ].join('|'),
+  'i'
+);
+
 /** 写诗、作词、对对联 */
 const POEM_RE = new RegExp(
   [
@@ -97,12 +115,17 @@ export function detectIntent(text) {
     return { type: 'poem', matched: poem[0], allowLong: true };
   }
 
+  const discuss = t.match(DISCUSS_RE);
+  if (discuss) {
+    return { type: 'discuss', matched: discuss[0], allowLong: true };
+  }
+
   return { type: 'chat' };
 }
 
 /** 这类任务要不要强制走云端（本地模型写不出像样的故事） */
 export function needsCloud(intent) {
-  return intent.type === 'story' || intent.type === 'poem';
+  return intent.type === 'story' || intent.type === 'poem' || intent.type === 'discuss';
 }
 
 /** 这类任务要不要提高输出上限 */

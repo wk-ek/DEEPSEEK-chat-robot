@@ -969,10 +969,10 @@ export class Brain {
     try {
       // 讲故事的输出上限要高得多，不然会被砍断
       const replyMaxTokens = assembled.intent?.type === 'story'
-        ? 2000
+        ? 2400
         : assembled.intent?.type === 'poem'
-          ? 700
-          : 500;
+          ? 800
+          : 1000;
 
       raw = await chat({
         messages,
@@ -990,7 +990,7 @@ export class Brain {
     }
 
     // 讲故事这类任务要放宽截断上限，不然刚开个头就被砍了
-    const replyCharLimit = assembled.wantsLong ? 900 : config.reply.maxReplyChars;
+    const replyCharLimit = assembled.wantsLong ? 1100 : config.reply.maxReplyChars;
     const rawReply = sanitizeReply(raw, identity?.label || config.botName, replyCharLimit);
     let { text: reply, sticker } = extractSticker(rawReply);
 

@@ -150,7 +150,7 @@
     "quoteReply": false,
     "debounceMs": 900,
     "maxContextMessages": 24,
-    "maxReplyChars": 260,
+    "maxReplyChars": 450,
     "replyDelayMs": [
       300,
       1600

@@ -104,8 +104,14 @@ async function main() {
 
   banner();
 
-  if (envConfig.provider !== 'mock' && envConfig.provider !== 'local' && !envConfig.deepseekKey) {
+  // 只有真的要调云端时才检查 key。
+  // 注意 hybrid 模式用的是 cloudApiKey（新配置），不是 deepseekKey（旧配置），
+  // 混在一起判断会误报「未配置 DEEPSEEK_API_KEY」。
+  if (envConfig.provider === 'deepseek' && !envConfig.deepseekKey) {
     log.warn('未配置 DEEPSEEK_API_KEY —— 收到消息时会报错。请改 .env，或临时设 LLM_PROVIDER=mock 先跑通链路。');
+  }
+  if (envConfig.provider === 'hybrid' && !envConfig.cloudApiKey) {
+    log.warn('未配置 CLOUD_API_KEY —— 混合模式会全程走本地，知识问答会不准。');
   }
 
   getDb();
