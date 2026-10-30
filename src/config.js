@@ -78,7 +78,8 @@ if (!fs.existsSync(configFile)) {
 export const config = deepMerge(DEFAULTS, readJson(configFile, {}));
 
 export const envConfig = {
-  deepseekKey: env.DEEPSEEK_API_KEY || '',
+  // 兼容：只填了 CLOUD_API_KEY 时，deepseek 单模式也能用
+  deepseekKey: env.DEEPSEEK_API_KEY || env.CLOUD_API_KEY || '',
   deepseekBaseUrl: (env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/+$/, ''),
   deepseekModel: env.DEEPSEEK_MODEL || 'deepseek-chat',
   temperature: Number(env.DEEPSEEK_TEMPERATURE || 0.85),
